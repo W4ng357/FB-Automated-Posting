@@ -18,6 +18,16 @@ def session_exists(account_name: str) -> bool:
     return get_session_path(account_name).is_dir()
 
 
+def get_session(account_name: str) -> Path:
+    session_path =  get_session_path(account_name)
+
+    if not session_path.is_dir():
+        raise FileNotFoundError(
+            f"Session directory not found for account '{account_name}': {session_path}"
+        )
+
+    return session_path
+
 def list_sessions() -> list[str]:
       if not SESSIONS_DIR.exists():
           return []
