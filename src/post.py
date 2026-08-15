@@ -1,6 +1,7 @@
 import argparse
 from pathlib import Path
 
+from models.group_target import GroupTarget
 from services.content_loader import load_caption, load_images
 from session_manager import get_session
 from facebook.group_poster import post_to_groups
@@ -28,9 +29,11 @@ def parse_args():
 
     parser.add_argument(
         "--group",
-        nargs="+",
+        action="append",
+        nargs=2,
+        metavar=("URL", "COUNT"),
         required=True,
-        help="One or more Facebook group URLs",
+        help="Facebook group URL followed by target post count",
     )
 
     return parser.parse_args()
@@ -46,19 +49,31 @@ def main():
 
     caption = load_caption(caption_file)
     images = load_images(images_folder)
-
+    
+    group_targets = [
+    GroupTarget(
+        url=url,
+        target_count=int(count),
+        )
+    for url, count in args.group
+    ]
+    # print(args.group)
     print("Post configuration")
     print("------------------")
     print(f"Account : {args.account}")
     print(f"Session : {session_path}")
-    print(f"Group   : {args.group}")
     print(f"Caption : {caption_file}")
     print(f"Images  : {len(images)}")
-    
+    print("Groups  :")
+    for group in group_targets:
+        print(
+            f"  - {group.url} "
+            f"(target: {group.target_count})"
+        )
 
     post_to_groups(
         session_path=session_path,
-        group_urls=args.group,
+        group_targets=group_targets,
         caption=caption,
         image_paths=images,
     )
