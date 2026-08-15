@@ -5,7 +5,7 @@ from models.group_target import GroupTarget
 from services.content_loader import load_caption, load_images
 from session_manager import get_session
 from facebook.group_poster import post_to_groups
-
+from services.post_summary import post_summary
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -71,13 +71,14 @@ def main():
             f"(target: {group.target_count})"
         )
 
-    post_to_groups(
+    results = post_to_groups(
         session_path=session_path,
         group_targets=group_targets,
         caption=caption,
         image_paths=images,
     )
 
+    post_summary(results)
 
 if __name__ == "__main__":
     main()

@@ -30,7 +30,7 @@ def open_account(account_name: str):
         page.goto("https://www.facebook.com")
 
         print(f"Opened account session: {account_name}")
-
+        page.pause()
         input("Press Enter to close...")
 
         context.close()

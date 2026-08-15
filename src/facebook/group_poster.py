@@ -2,7 +2,9 @@ from pathlib import Path
 
 from playwright.sync_api import Page, sync_playwright
 
+from facebook.get_group_name import get_group_name
 from models.group_target import GroupTarget
+from models.post_result import PostResult
 from services.post_interval import wait_random_minutes, MIN_POST_INTERVAL, MAX_POST_INTERVAL, MIN_ROUND_INTERVAL, MAX_ROUND_INTERVAL
 from facebook.get_post_url import get_latest_post_url
 def post_to_group(
@@ -10,59 +12,81 @@ def post_to_group(
     group_url: str,
     caption: str,
     image_paths: list[Path],
-) -> str | None:
-    print(f"[+] Opening group: {group_url}")
+) -> PostResult:
+    group_name = None
+    try:
 
-    page.goto(
-        group_url,
-        wait_until="domcontentloaded",
-    )
+        page.goto(
+            group_url,
+            wait_until="domcontentloaded",
+        )
+        
+        group_name = get_group_name(page)
+        print(f"[+] Group name: {group_name}")
 
-    composer = page.get_by_role(
-        "button",
-        name="Bạn viết gì đi..."
-    )
-    composer.click()
 
-    dialog = page.get_by_role(
-        "dialog",
-        name="Tạo bài viết"
-    ).first
+        composer = page.get_by_role(
+            "button",
+            name="Bạn viết gì đi...",
+        )
+        composer.click()
 
-    textbox = dialog.get_by_role("textbox")
-    textbox.press_sequentially(caption)
+        dialog = page.get_by_role(
+            "dialog",
+            name="Tạo bài viết",
+        ).first
 
-    file_input = dialog.locator(
-        'input[type="file"]'
-    ).first
+        textbox = dialog.get_by_role("textbox")
+        textbox.press_sequentially(caption)
 
-    file_input.set_input_files(
-        [str(path) for path in image_paths]
-    )
+        file_input = dialog.locator(
+            'input[type="file"]'
+        ).first
 
-    post_button = dialog.get_by_role(
-        "button",
-        name="Đăng",
-        exact=True,
-    )
+        file_input.set_input_files(
+            [str(path) for path in image_paths]
+        )
 
-    post_button.click()
+        post_button = dialog.get_by_role(
+            "button",
+            name="Đăng",
+            exact=True,
+        )
 
-    dialog.wait_for(
-        state="hidden",
-        timeout=60_000,
-    )
+        post_button.click()
 
-    print("[✓] Post completed")
-    post_url = get_latest_post_url(page)
+        dialog.wait_for(
+            state="hidden",
+            timeout=60_000,
+        )
 
-    if post_url:
-        print(f"[✓] Post URL: {post_url}")
-    else:
-        print("[!] Could not get post URL")
+        print("[✓] Post completed")
 
-    return post_url
-    return post_url
+        # Lấy URL là bước phụ.
+        # Fail bước này không có nghĩa post fail.
+        try:
+            post_url = get_latest_post_url(page)
+        except Exception as error:
+            print(
+                f"[!] Post succeeded but "
+                f"could not get URL: {error}"
+            )
+            post_url = None
+
+        return PostResult(
+            group_url=group_url,
+            group_name=group_name,
+            success=True,
+            post_url=post_url,
+        )
+
+    except Exception as error:
+        return PostResult(
+            group_url=group_url,
+            group_name=group_name,
+            success=False,
+            error=str(error),
+        )
 
 
 def post_to_groups(
@@ -70,7 +94,8 @@ def post_to_groups(
     group_targets: list[GroupTarget],
     caption: str,
     image_paths: list[Path],
-) -> None:
+) -> list[PostResult]:
+    results: list[PostResult] = []
     with sync_playwright() as p:
         context = p.chromium.launch_persistent_context(
             user_data_dir=str(session_path),
@@ -90,7 +115,7 @@ def post_to_groups(
             round_number = 1
 
             while any(
-                group.remaining > 0
+                group.active
                 for group in group_targets
             ):
                 print(f"\n===== ROUND {round_number} =====")
@@ -98,7 +123,7 @@ def post_to_groups(
                 active_groups = [
                     group
                     for group in group_targets
-                    if group.remaining > 0
+                    if group.active
                 ]
 
                 for index, group in enumerate(active_groups):
@@ -108,20 +133,35 @@ def post_to_groups(
                         f"{group.url}"
                     )
 
-                    post_to_group(
-                        page=page,
-                        group_url=group.url,
-                        caption=caption,
-                        image_paths=image_paths,
+                    result = post_to_group(
+                    page=page,
+                    group_url=group.url,
+                    caption=caption,
+                    image_paths=image_paths,
                     )
+                    results.append(result)
+                    if result.success:
+                        group.mark_posted()
 
-                    group.mark_posted()
+                        print(
+                            f"[✓] Group progress: "
+                            f"{group.posted_count}/"
+                            f"{group.target_count}"
+                        )
 
-                    print(
-                        f"[✓] Group progress: "
-                        f"{group.posted_count}/"
-                        f"{group.target_count}"
-                    )
+                        if result.post_url:
+                            print(f"[✓] URL: {result.post_url}")
+                        else:
+                            print("[!] URL unavailable")
+
+                    else:
+                        group.mark_failed()
+
+                        print(f"[✗] Post failed: {result.error}")
+                        print(
+                            f"[!] Group disabled for this run "
+                            f"({group.posted_count}/{group.target_count})"
+                        )
 
                     # Chỉ chờ ngắn nếu còn group khác
                     # trong cùng round hiện tại
@@ -134,7 +174,7 @@ def post_to_groups(
 
                 # Kiểm tra sau khi hoàn thành cả round
                 if any(
-                    group.remaining > 0
+                    group.active
                     for group in group_targets
                 ):
                     wait_random_minutes(
@@ -147,3 +187,4 @@ def post_to_groups(
 
         finally:
             context.close()
+    return results
