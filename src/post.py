@@ -1,15 +1,18 @@
 import argparse
-from pathlib import Path
 
-from models.group_target import GroupTarget
-from services.content_loader import load_caption, load_images
-from session_manager import get_session
 from facebook.group_poster import post_to_groups
+from models.group_target import GroupTarget
+from services.listing_service import ListingService
 from services.post_summary import post_summary
+from session_manager import get_session
 
-def parse_args():
+
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Post text and images to a Facebook group."
+        description=(
+            "Post a saved rental listing to "
+            "Facebook groups."
+        )
     )
 
     parser.add_argument(
@@ -18,13 +21,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        "caption_file",
-        help="Path to the caption text file"
-    )
-
-    parser.add_argument(
-        "images_folder",
-        help="Path to the folder containing images"
+        "listing_id",
+        help="Saved listing ID, e.g. R001",
     )
 
     parser.add_argument(
@@ -39,32 +37,43 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():
+def main() -> None:
     args = parse_args()
 
     session_path = get_session(args.account)
+    listing_service = ListingService()
 
-    caption_file = Path(args.caption_file).resolve()
-    images_folder = Path(args.images_folder).resolve()
+    listing = listing_service.get_by_id(
+        args.listing_id
+    )
 
-    caption = load_caption(caption_file)
-    images = load_images(images_folder)
-    
-    group_targets = [
-    GroupTarget(
-        url=url,
-        target_count=int(count),
+    if listing is None:
+        raise KeyError(
+            f"Listing not found: {args.listing_id}"
         )
-    for url, count in args.group
+
+    caption, images = (
+        listing_service.prepare_for_posting(
+            args.listing_id
+        )
+    )
+
+    group_targets = [
+        GroupTarget(
+            url=url,
+            target_count=int(count),
+        )
+        for url, count in args.group
     ]
-    # print(args.group)
+
     print("Post configuration")
     print("------------------")
     print(f"Account : {args.account}")
-    print(f"Session : {session_path}")
-    print(f"Caption : {caption_file}")
+    print(f"Listing : {listing.id}")
+    print(f"Title   : {listing.title}")
     print(f"Images  : {len(images)}")
     print("Groups  :")
+
     for group in group_targets:
         print(
             f"  - {group.url} "
@@ -79,6 +88,7 @@ def main():
     )
 
     post_summary(results)
+
 
 if __name__ == "__main__":
     main()

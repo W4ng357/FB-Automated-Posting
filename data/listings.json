@@ -1,0 +1,13 @@
+[
+  {
+    "id": "R003",
+    "title": "Phòng trọ Thanh Xuân",
+    "location": "Thanh Xuân",
+    "price": 3500000,
+    "address": "Nguyễn Trãi, Thanh Xuân, Hà Nội",
+    "area": 25,
+    "description": "Phòng sạch đẹp, đầy đủ nội thất",
+    "contact": "0123456789",
+    "enabled": true
+  }
+]
