@@ -7,8 +7,9 @@ from pathlib import Path
 from models.facebook_account import FacebookAccount
 
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-DEFAULT_ACCOUNTS_FILE = ROOT_DIR / "data" / "accounts.json"
+from app_paths import ACCOUNTS_FILE
+
+DEFAULT_ACCOUNTS_FILE = ACCOUNTS_FILE
 _ACCOUNTS_LOCK = threading.RLock()
 
 

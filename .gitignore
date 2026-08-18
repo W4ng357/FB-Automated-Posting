@@ -1,6 +1,18 @@
+# Python virtual environment
 .venv/
 __pycache__/
 *.pyc
+*.pyo
 
+# User data and sessions (do not distribute or commit)
 browser_sessions/
+data/
 logs/
+*.tmp
+
+# PyInstaller build outputs
+build/
+dist/
+
+# Keep PyInstaller spec tracked
+!FBPoster.spec

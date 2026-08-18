@@ -30,7 +30,7 @@ class PostingTaskCard(QFrame):
         title.setObjectName("CardTitle")
         details = QLabel(
             f"{task.listing_id} · {len(task.group_targets)} nhóm · "
-            f"{task.total_attempts} lượt dự kiến"
+            f"{task.total_attempts} lượt đăng"
         )
         details.setProperty("muted", True)
         group_names = [
@@ -54,7 +54,7 @@ class PostingTaskCard(QFrame):
         edit_button.clicked.connect(
             lambda: self.edit_requested.emit(task.listing_id)
         )
-        remove_button = QPushButton("Gỡ")
+        remove_button = QPushButton("Bỏ khỏi kế hoạch")
         remove_button.setProperty("role", "ghostDanger")
         remove_button.setProperty("density", "compact")
         remove_button.clicked.connect(

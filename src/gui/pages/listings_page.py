@@ -41,7 +41,7 @@ class ListingsPage(QWidget):
         title = QLabel("Phòng")
         title.setObjectName("PageTitle")
         subtitle = QLabel(
-            "Quản lý thông tin, ảnh và trạng thái sẵn sàng đăng của từng phòng."
+            "Quản lý thông tin và ảnh dùng cho bài đăng của từng phòng."
         )
         subtitle.setProperty("muted", True)
         heading.addWidget(title)
@@ -58,7 +58,7 @@ class ListingsPage(QWidget):
         self.search_input = QLineEdit()
         self.search_input.setProperty("search", True)
         self.search_input.setPlaceholderText(
-            "Tìm theo mã, tên phòng hoặc địa chỉ..."
+            "Tìm theo mã, tên phòng hoặc địa chỉ…"
         )
         self.search_input.setClearButtonEnabled(True)
         self.search_input.textChanged.connect(self._render_listings)
@@ -120,7 +120,7 @@ class ListingsPage(QWidget):
             else:
                 self._render_message(
                     "Chưa có phòng",
-                    "Tạo phòng đầu tiên để chuẩn bị nội dung và ảnh đăng.",
+                    "Thêm phòng đầu tiên để chuẩn bị nội dung đăng.",
                     "Thêm phòng",
                     self._add_listing,
                 )
@@ -202,7 +202,7 @@ class ListingsPage(QWidget):
         confirmation.setWindowTitle("Xóa phòng")
         confirmation.setText(f"Bạn muốn xóa phòng {listing_id}?")
         confirmation.setInformativeText(
-            "Có thể chỉ xóa thông tin hoặc xóa cả thư mục ảnh đã lưu."
+            "Chọn giữ lại ảnh hoặc xóa cả ảnh đã lưu của phòng này."
         )
         metadata_button = confirmation.addButton(
             "Chỉ xóa thông tin",

@@ -71,7 +71,7 @@ class GroupService:
         delete_image: bool = True,
     ) -> bool:
         if self.repository.get_by_id(group_id) is None:
-            raise KeyError(f"Group not found: {group_id}")
+            raise KeyError(f"Không tìm thấy nhóm {group_id}.")
         deleted = self.repository.delete(group_id)
         if delete_image:
             self.asset_manager.delete_group_assets(group_id)
@@ -84,18 +84,18 @@ class GroupService:
     def normalize_group_url(url: str) -> str:
         candidate = url.strip()
         if not candidate:
-            raise ValueError("Group URL cannot be empty")
+            raise ValueError("Hãy nhập URL nhóm.")
         if "://" not in candidate:
             candidate = f"https://{candidate}"
 
         parsed = urlsplit(candidate)
         host = (parsed.hostname or "").lower()
         if host != "facebook.com" and not host.endswith(".facebook.com"):
-            raise ValueError("URL must belong to facebook.com")
+            raise ValueError("URL nhóm phải thuộc facebook.com.")
 
         parts = [part for part in parsed.path.split("/") if part]
         if len(parts) < 2 or parts[0].lower() != "groups":
-            raise ValueError("URL must point to a Facebook group")
+            raise ValueError("Đường dẫn này không phải URL nhóm Facebook.")
 
         return f"https://www.facebook.com/groups/{parts[1]}"
 

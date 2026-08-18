@@ -140,7 +140,7 @@ class RoomPlanRow(QFrame):
             self.plan_summary.setText("Chưa chọn nhóm")
             return
         self.plan_summary.setText(
-            f"{group_count} nhóm · {attempts} lượt dự kiến"
+            f"{group_count} nhóm · {attempts} lượt đăng"
         )
 
 
@@ -227,7 +227,7 @@ class PostingPlanDialog(QDialog):
             }
             self._room_names[task.listing_id] = dict(task.group_names)
 
-        self.setWindowTitle(scope_title or "Chọn phòng và nhóm đăng")
+        self.setWindowTitle(scope_title or "Chọn phòng và nhóm")
         self.setMinimumSize(920, 600)
         self.resize(1080, 700)
 
@@ -281,7 +281,9 @@ class PostingPlanDialog(QDialog):
         layout.setSpacing(10)
         heading = QLabel("1. Chọn phòng")
         heading.setObjectName("SectionTitle")
-        helper = QLabel("Tick phòng cần đăng; bấm vào một phòng để cấu hình.")
+        helper = QLabel(
+            "Chọn phòng cần đăng, rồi bấm vào phòng để chọn nhóm."
+        )
         helper.setProperty("muted", True)
         helper.setWordWrap(True)
         layout.addWidget(heading)
@@ -307,7 +309,7 @@ class PostingPlanDialog(QDialog):
         layout.setSpacing(10)
         self.group_heading = QLabel("2. Chọn nhóm và số lượt")
         self.group_heading.setObjectName("SectionTitle")
-        self.active_room_label = QLabel("Chưa có phòng để cấu hình")
+        self.active_room_label = QLabel("Chưa chọn phòng")
         self.active_room_label.setProperty("muted", True)
         self.active_room_label.setWordWrap(True)
         layout.addWidget(self.group_heading)
@@ -322,7 +324,7 @@ class PostingPlanDialog(QDialog):
         self.group_search_input.setMaxLength(240)
         self.group_search_input.setAccessibleName("Tìm nhóm trong danh sách")
         self.group_search_input.setToolTip(
-            "Tìm theo tên hoặc đường dẫn nhóm; có thể gõ không dấu."
+            "Có thể tìm theo tên, đường dẫn hoặc từ khóa không dấu."
         )
         self.group_search_input.textChanged.connect(self._filter_group_rows)
         layout.addWidget(self.group_search_input)
@@ -339,7 +341,7 @@ class PostingPlanDialog(QDialog):
 
         bulk = QHBoxLayout()
         bulk.setSpacing(8)
-        bulk_label = QLabel("Đặt số lượt tất cả nhóm đã chọn thành")
+        bulk_label = QLabel("Đặt cùng số lượt cho các nhóm đã chọn")
         bulk_label.setProperty("muted", True)
         self.bulk_count_input = QSpinBox()
         self.bulk_count_input.setRange(1, 999)
@@ -378,8 +380,8 @@ class PostingPlanDialog(QDialog):
         if not self.listings:
             self.room_layout.addWidget(
                 EmptyState(
-                    "Chưa có phòng đang dùng",
-                    "Tạo phòng có ảnh và bật phòng trước khi lập kế hoạch.",
+                    "Chưa có phòng nào đang bật",
+                    "Hãy thêm ảnh và bật ít nhất một phòng để lập kế hoạch.",
                 )
             )
             self.room_layout.addStretch()
@@ -400,7 +402,7 @@ class PostingPlanDialog(QDialog):
     def _activate_room(self, listing_id: str | None) -> None:
         if listing_id is None or listing_id not in self._listing_by_id:
             self._active_listing_id = None
-            self.active_room_label.setText("Chưa có phòng để cấu hình")
+            self.active_room_label.setText("Chưa chọn phòng")
             self._render_group_rows()
             return
         self._save_active_counts()
@@ -408,7 +410,7 @@ class PostingPlanDialog(QDialog):
         for room_id, row in self.room_rows.items():
             row.set_active(room_id == listing_id)
         listing = self._listing_by_id[listing_id]
-        self.active_room_label.setText(f"Đang cấu hình: {listing.title}")
+        self.active_room_label.setText(f"Đang chọn nhóm cho: {listing.title}")
         self._render_group_rows()
 
     def _on_room_checked(self, listing_id: str, checked: bool) -> None:
@@ -442,7 +444,7 @@ class PostingPlanDialog(QDialog):
             self.group_layout.addWidget(
                 EmptyState(
                     "Chọn một phòng",
-                    "Bấm vào phòng cần thiết lập nhóm đăng.",
+                    "Bấm vào một phòng ở cột bên trái để chọn nhóm đăng.",
                 )
             )
             self.group_layout.addStretch()
@@ -452,8 +454,8 @@ class PostingPlanDialog(QDialog):
             self._sync_select_all_groups()
             self.group_layout.addWidget(
                 EmptyState(
-                    "Chưa có nhóm đang dùng",
-                    "Thêm hoặc bật một nhóm trước khi lập kế hoạch.",
+                    "Chưa có nhóm nào đang bật",
+                    "Hãy thêm hoặc bật ít nhất một nhóm để lập kế hoạch.",
                 )
             )
             self.group_layout.addStretch()
@@ -467,7 +469,7 @@ class PostingPlanDialog(QDialog):
         self.group_search_input.setEnabled(True)
         self.group_no_results = QLabel(
             "Không tìm thấy nhóm phù hợp.\n"
-            "Thử tìm bằng tên hoặc một phần đường dẫn khác."
+            "Thử dùng tên hoặc một phần đường dẫn khác."
         )
         self.group_no_results.setProperty("muted", True)
         self.group_no_results.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -591,7 +593,7 @@ class PostingPlanDialog(QDialog):
             QMessageBox.information(
                 self,
                 "Chưa chọn nhóm",
-                "Hãy tick ít nhất một nhóm trước khi áp dụng số lượt.",
+                "Chọn ít nhất một nhóm trước khi áp dụng số lượt.",
             )
             return
         value = self.bulk_count_input.value()
@@ -610,7 +612,7 @@ class PostingPlanDialog(QDialog):
             QMessageBox.warning(
                 self,
                 "Chưa chọn phòng",
-                "Hãy chọn ít nhất một phòng cho kế hoạch đăng.",
+                "Chọn ít nhất một phòng cho kế hoạch đăng.",
             )
             return
         missing = [
@@ -622,7 +624,7 @@ class PostingPlanDialog(QDialog):
             QMessageBox.warning(
                 self,
                 "Phòng chưa có nhóm",
-                "Hãy chọn ít nhất một nhóm cho: " + ", ".join(missing),
+                "Chọn ít nhất một nhóm cho: " + ", ".join(missing),
             )
             return
         self.accept()

@@ -36,11 +36,14 @@ class ResultCard(QFrame):
         listing = QLabel(entry.listing_title)
         listing.setProperty("muted", True)
         if result.success and result.post_url:
-            detail_text = "Đăng thành công · Đã lấy được liên kết bài viết"
+            detail_text = "Đã đăng · Có liên kết bài viết"
         elif result.success:
-            detail_text = "Đăng thành công · Chưa lấy được liên kết bài viết"
+            detail_text = "Đã đăng · Chưa lấy được liên kết bài viết"
         else:
-            detail_text = f"Đăng thất bại · {result.error or 'Không rõ lỗi'}"
+            detail_text = (
+                f"Đăng không thành công · "
+                f"{result.error or 'Không có thông tin lỗi'}"
+            )
         detail = QLabel(detail_text)
         detail.setWordWrap(True)
         detail.setProperty("muted", True)

@@ -39,7 +39,7 @@ class GroupsPage(QWidget):
         title = QLabel("Nhóm")
         title.setObjectName("PageTitle")
         subtitle = QLabel(
-            "Lưu nhóm Facebook một lần để tái sử dụng cho mọi phòng."
+            "Lưu nhóm Facebook để dùng lại cho nhiều phòng."
         )
         subtitle.setProperty("muted", True)
         heading.addWidget(title)
@@ -56,7 +56,7 @@ class GroupsPage(QWidget):
         self.search_input = QLineEdit()
         self.search_input.setProperty("search", True)
         self.search_input.setPlaceholderText(
-            "Tìm theo tên, mã hoặc URL nhóm..."
+            "Tìm theo tên, mã hoặc URL nhóm…"
         )
         self.search_input.setClearButtonEnabled(True)
         self.search_input.textChanged.connect(self._render_groups)
@@ -117,7 +117,7 @@ class GroupsPage(QWidget):
             else:
                 self._render_message(
                     "Chưa có nhóm đã lưu",
-                    "Lưu nhóm Facebook để chọn nhanh khi tạo hàng chờ đăng.",
+                    "Thêm nhóm Facebook để dùng khi lập kế hoạch đăng.",
                     "Thêm nhóm",
                     self._add_group,
                 )
@@ -191,7 +191,7 @@ class GroupsPage(QWidget):
         answer = QMessageBox.question(
             self,
             "Xóa nhóm",
-            f"Xóa nhóm {group_id} khỏi thư viện?",
+            f"Bạn có chắc muốn xóa nhóm {group_id}?",
             QMessageBox.StandardButton.Yes
             | QMessageBox.StandardButton.Cancel,
             QMessageBox.StandardButton.Cancel,

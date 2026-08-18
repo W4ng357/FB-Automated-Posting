@@ -43,14 +43,14 @@ def extract_facebook_profile(
         for marker in ("/login", "/checkpoint", "/recover")
     ):
         raise FacebookProfileNotReadyError(
-            "Facebook chưa xác nhận đăng nhập. Hoàn tất bước bảo mật rồi thử lại."
+            "Facebook chưa xác nhận đăng nhập. Hoàn tất bước xác minh rồi thử lại."
         )
 
     name = _wait_for_profile_name(page)
     if not name:
         raise FacebookProfileNotReadyError(
-            "Chưa đọc được tên hồ sơ. Hãy mở trang cá nhân trong cửa sổ "
-            "Facebook rồi thử lại."
+            "Chưa lấy được tên tài khoản. Hãy mở trang cá nhân trong cửa sổ "
+            "Facebook, rồi thử lại."
         )
 
     avatar_data, avatar_extension = _wait_for_visible_avatar(page)
@@ -96,8 +96,8 @@ def run_account_login_session(
                     wait_until="domcontentloaded",
                 )
                 status_callback(
-                    "Đăng nhập Facebook trong cửa sổ Chromium, sau đó "
-                    "quay lại đây để xác nhận."
+                    "Đăng nhập Facebook trong cửa sổ vừa mở, rồi quay lại "
+                    "ứng dụng để lấy thông tin tài khoản."
                 )
                 while not cancel_requested.is_set():
                     if not capture_requested.wait(0.2):

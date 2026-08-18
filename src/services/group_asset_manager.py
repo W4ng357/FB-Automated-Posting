@@ -2,8 +2,7 @@ from pathlib import Path
 from shutil import rmtree
 
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-GROUPS_DIR = ROOT_DIR / "data" / "groups"
+from app_paths import GROUPS_DIR
 SUPPORTED_GROUP_IMAGE_EXTENSIONS = {
     ".jpg",
     ".jpeg",

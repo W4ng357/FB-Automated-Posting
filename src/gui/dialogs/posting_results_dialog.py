@@ -20,6 +20,8 @@ from services.listing_service import ListingService
 
 
 class PostingResultRow(QFrame):
+    GROUP_OPTICAL_OFFSET = 24
+
     def __init__(
         self,
         entry: PostingResultEntry,
@@ -34,23 +36,31 @@ class PostingResultRow(QFrame):
         image_path = self._first_image(listing_service, entry.listing_id)
 
         root = QHBoxLayout(self)
-        root.setContentsMargins(14, 13, 14, 13)
-        root.setSpacing(14)
-        thumbnail = RoundedThumbnail(
+        root.setContentsMargins(14, 10, 14, 10)
+        root.setSpacing(12)
+
+        room_panel_layout = QHBoxLayout()
+        room_panel_layout.setContentsMargins(0, 0, 0, 0)
+        room_panel_layout.setSpacing(12)
+        self.thumbnail = RoundedThumbnail(
             image_path,
             entry.listing_title,
-            QSize(92, 78),
+            QSize(80, 68),
         )
-        root.addWidget(thumbnail, 0, Qt.AlignmentFlag.AlignTop)
+        room_panel_layout.addWidget(
+            self.thumbnail,
+            0,
+            Qt.AlignmentFlag.AlignVCenter,
+        )
 
         room_info = QVBoxLayout()
-        room_info.setSpacing(4)
-        title = QLabel(entry.listing_title)
-        title.setObjectName("CardTitle")
-        title.setWordWrap(True)
+        room_info.setSpacing(2)
+        self.room_title = QLabel(entry.listing_title)
+        self.room_title.setObjectName("CardTitle")
+        self.room_title.setWordWrap(True)
         if listing is None:
             metadata_text = entry.listing_id
-            address_text = "Thông tin phòng không còn trong dữ liệu cục bộ"
+            address_text = "Phòng này không còn trong danh sách"
         else:
             metadata = [listing.id, format_price(listing.price)]
             if listing.area is not None:
@@ -65,43 +75,83 @@ class PostingResultRow(QFrame):
         detail = QLabel(self._detail_text(entry))
         detail.setProperty("resultDetail", True)
         detail.setWordWrap(True)
-        room_info.addWidget(title)
+        room_info.addWidget(self.room_title)
         room_info.addWidget(metadata)
         room_info.addWidget(address)
         room_info.addWidget(detail)
-        root.addLayout(room_info, 1)
+        room_panel_layout.addLayout(room_info, 1)
+        root.addLayout(room_panel_layout, 1)
+
+        fetched_group_name = (result.group_name or "").strip()
+        display_group_name = (
+            result.group_url
+            if fetched_group_name.casefold() in {"", "unknown", "unknown group"}
+            else fetched_group_name
+        )
+        self.group_label = QLabel(display_group_name)
+        self.group_label.setProperty("resultGroup", True)
+        self.group_label.setWordWrap(True)
+        self.group_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.group_label.setAccessibleName(
+            f"Nhóm đăng: {self.group_label.text()}"
+        )
+        group_slot = QHBoxLayout()
+        group_slot.setContentsMargins(
+            self.GROUP_OPTICAL_OFFSET * 2,
+            0,
+            0,
+            0,
+        )
+        group_slot.setSpacing(0)
+        group_slot.addWidget(
+            self.group_label,
+            0,
+            Qt.AlignmentFlag.AlignVCenter,
+        )
+        root.addLayout(group_slot)
 
         event_info = QVBoxLayout()
-        event_info.setSpacing(5)
-        event_info.setContentsMargins(6, 0, 0, 0)
-        time_label = QLabel(
+        event_info.setSpacing(3)
+        event_info.setContentsMargins(8, 0, 0, 0)
+        self.time_label = QLabel(
             entry.posted_at.astimezone().strftime("%d/%m/%Y · %H:%M:%S")
         )
-        time_label.setProperty("meta", True)
-        time_label.setAlignment(Qt.AlignmentFlag.AlignRight)
-        group = QLabel(result.group_name or result.group_url)
-        group.setProperty("resultGroup", True)
-        group.setWordWrap(True)
-        group.setAlignment(
-            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop
-        )
+        self.time_label.setProperty("meta", True)
+        self.time_label.setAlignment(Qt.AlignmentFlag.AlignRight)
         status_text, status_state = self.status_for(entry)
-        badge = StatusBadge(status_text, status_state)
+        self.status_badge = StatusBadge(status_text, status_state)
         destination_url = result.post_url or result.group_url
-        open_button = QPushButton(
+        self.open_button = QPushButton(
             "Mở bài viết" if result.post_url else "Mở nhóm"
         )
-        open_button.setProperty("role", "link")
-        open_button.setProperty("density", "compact")
-        open_button.clicked.connect(
+        self.open_button.setProperty("role", "link")
+        self.open_button.setProperty("density", "compact")
+        self.open_button.clicked.connect(
             lambda: QDesktopServices.openUrl(QUrl(destination_url))
         )
-        event_info.addWidget(time_label)
-        event_info.addWidget(group)
-        event_info.addStretch()
-        event_info.addWidget(badge, 0, Qt.AlignmentFlag.AlignRight)
-        event_info.addWidget(open_button, 0, Qt.AlignmentFlag.AlignRight)
-        root.addLayout(event_info, 0)
+        event_info.addWidget(self.time_label)
+        event_info.addWidget(
+            self.status_badge,
+            0,
+            Qt.AlignmentFlag.AlignRight,
+        )
+        event_info.addWidget(
+            self.open_button,
+            0,
+            Qt.AlignmentFlag.AlignRight,
+        )
+        event_info.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        root.addLayout(event_info, 1)
+        self._update_group_width(self.width())
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._update_group_width(event.size().width())
+
+    def _update_group_width(self, row_width: int) -> None:
+        available_width = max(0, row_width - 28)
+        group_width = max(200, min(440, round(available_width * 0.28)))
+        self.group_label.setFixedWidth(group_width)
 
     @staticmethod
     def status_for(entry: PostingResultEntry) -> tuple[str, str]:
@@ -109,17 +159,17 @@ class PostingResultRow(QFrame):
         if result.success and result.post_url:
             return "Thành công", "success"
         if result.success:
-            return "Bị gián đoạn", "warning"
+            return "Thiếu liên kết", "warning"
         return "Thất bại", "error"
 
     @staticmethod
     def _detail_text(entry: PostingResultEntry) -> str:
         result = entry.result
         if result.success and result.post_url:
-            return "Đã đăng bài và lấy được liên kết."
+            return "Đã đăng và lấy được liên kết bài viết."
         if result.success:
-            return "Đã đăng bài nhưng không lấy được liên kết để kiểm tra."
-        return result.error or "Đăng bài thất bại nhưng không có mô tả lỗi."
+            return "Đã đăng nhưng chưa lấy được liên kết bài viết."
+        return result.error or "Đăng không thành công và không có thông tin lỗi."
 
     @staticmethod
     def _first_image(
@@ -176,7 +226,7 @@ class PostingResultsDialog(QDialog):
         self.container = QWidget()
         self.rows_layout = QVBoxLayout(self.container)
         self.rows_layout.setContentsMargins(0, 0, 7, 0)
-        self.rows_layout.setSpacing(9)
+        self.rows_layout.setSpacing(8)
         self.scroll.setWidget(self.container)
         root.addWidget(self.scroll, 1)
         self.set_entries(entries or [])
@@ -203,7 +253,7 @@ class PostingResultsDialog(QDialog):
         failed_count = len(self.entries) - success_count - interrupted_count
         parts = [f"{len(self.entries)} kết quả", f"{success_count} thành công"]
         if interrupted_count:
-            parts.append(f"{interrupted_count} bị gián đoạn")
+            parts.append(f"{interrupted_count} thiếu liên kết")
         if failed_count:
             parts.append(f"{failed_count} thất bại")
         self.summary_label.setText(" · ".join(parts))
@@ -212,7 +262,7 @@ class PostingResultsDialog(QDialog):
             self.rows_layout.addWidget(
                 EmptyState(
                     "Chưa có kết quả",
-                    "Kết quả mới sẽ xuất hiện ngay khi tài khoản đăng xong từng bài.",
+                    "Mỗi bài đăng xong sẽ xuất hiện tại đây.",
                 )
             )
         else:

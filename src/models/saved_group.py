@@ -11,9 +11,8 @@ class SavedGroup:
 
     def __post_init__(self) -> None:
         if not self.id.strip():
-            raise ValueError("Group id cannot be empty")
+            raise ValueError("Mã nhóm không được để trống.")
         if not self.url.strip():
-            raise ValueError("Group URL cannot be empty")
+            raise ValueError("URL nhóm không được để trống.")
         if not self.name.strip():
-            raise ValueError("Group name cannot be empty")
-
+            raise ValueError("Tên nhóm không được để trống.")

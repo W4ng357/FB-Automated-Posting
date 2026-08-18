@@ -57,7 +57,7 @@ class GroupCard(QFrame):
         side = QVBoxLayout()
         side.setSpacing(10)
         status = StatusBadge(
-            "Đang dùng" if group.enabled else "Đã ẩn",
+            "Đang bật" if group.enabled else "Đã ẩn",
             "enabled" if group.enabled else "disabled",
         )
         side.addWidget(status, 0, Qt.AlignmentFlag.AlignRight)
@@ -72,7 +72,7 @@ class GroupCard(QFrame):
         )
 
         menu = QMenu(self)
-        refresh_action = menu.addAction("Lấy lại tên nhóm")
+        refresh_action = menu.addAction("Cập nhật tên nhóm")
         refresh_action.triggered.connect(
             lambda _checked=False: self.refresh_requested.emit(group.id)
         )

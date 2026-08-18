@@ -112,7 +112,7 @@ class FacebookPostPreview(QFrame):
         heading.setSpacing(3)
         title = QLabel("Xem trước bài viết")
         title.setObjectName("SectionTitle")
-        hint = QLabel("Mô phỏng giao diện bài đăng Facebook")
+        hint = QLabel("Bài viết sẽ hiển thị gần giống thế này trên Facebook")
         hint.setProperty("muted", True)
         heading.addWidget(title)
         heading.addWidget(hint)
@@ -191,7 +191,7 @@ class FacebookPostPreview(QFrame):
             Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter,
         )
         note = QLabel(
-            "Nội dung thực tế có thể chênh lệch nhẹ tùy nhóm và kích thước cửa sổ Facebook."
+            "Cách hiển thị thực tế có thể khác đôi chút tùy nhóm Facebook."
         )
         note.setProperty("muted", True)
         note.setWordWrap(True)
@@ -207,7 +207,7 @@ class FacebookPostPreview(QFrame):
             self.media_grid.set_images(image_paths)
         count = len(image_paths)
         self.image_count.setText(
-            "Không có ảnh"
+            "Chưa có ảnh"
             if count == 0
             else f"{count} ảnh trong bài viết"
         )

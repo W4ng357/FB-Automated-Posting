@@ -8,8 +8,9 @@ from pathlib import Path
 from models.saved_group import SavedGroup
 
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-DEFAULT_GROUPS_FILE = ROOT_DIR / "data" / "groups.json"
+from app_paths import GROUPS_FILE
+
+DEFAULT_GROUPS_FILE = GROUPS_FILE
 _GROUPS_LOCK = threading.RLock()
 
 
@@ -38,14 +39,14 @@ class GroupRepository:
             data = json.loads(raw_data)
         except json.JSONDecodeError as error:
             raise ValueError(
-                f"Invalid JSON in groups file: {self.file_path}"
+                f"Tệp danh sách nhóm có JSON không hợp lệ: {self.file_path}"
             ) from error
 
         if not isinstance(data, list) or not all(
             isinstance(item, dict) for item in data
         ):
             raise ValueError(
-                f"Groups file must contain a JSON list of objects: "
+                f"Dữ liệu nhóm phải là một danh sách đối tượng JSON: "
                 f"{self.file_path}"
             )
 
@@ -71,7 +72,7 @@ class GroupRepository:
         with _GROUPS_LOCK:
             groups = self._get_all_unlocked()
             if any(group.url == url for group in groups):
-                raise ValueError(f"Group URL already exists: {url}")
+                raise ValueError(f"Nhóm có URL này đã được lưu: {url}")
 
             group = SavedGroup(
                 id=self._generate_next_id(groups),
@@ -98,12 +99,12 @@ class GroupRepository:
 
                 data = asdict(group)
                 if "id" in changes:
-                    raise ValueError("Group ID cannot be changed")
+                    raise ValueError("Không thể thay đổi mã nhóm.")
 
                 invalid_fields = set(changes) - set(data)
                 if invalid_fields:
                     raise ValueError(
-                        f"Invalid fields: {invalid_fields}"
+                        f"Trường dữ liệu không hợp lệ: {invalid_fields}"
                     )
 
                 next_url = str(changes.get("url", group.url))
@@ -113,7 +114,7 @@ class GroupRepository:
                     for other in groups
                 ):
                     raise ValueError(
-                        f"Group URL already exists: {next_url}"
+                        f"Nhóm có URL này đã được lưu: {next_url}"
                     )
 
                 data.update(changes)
@@ -122,7 +123,7 @@ class GroupRepository:
                 self._save(groups)
                 return updated
 
-            raise KeyError(f"Group not found: {group_id}")
+            raise KeyError(f"Không tìm thấy nhóm {group_id}.")
 
     def delete(self, group_id: str) -> bool:
         with _GROUPS_LOCK:
@@ -154,4 +155,3 @@ class GroupRepository:
             if match:
                 highest_id = max(highest_id, int(match.group(1)))
         return f"G{highest_id + 1:03d}"
-

@@ -88,8 +88,8 @@ class GroupSelectorDialog(QDialog):
         title = QLabel("Chọn nhóm và số lượt đăng")
         title.setObjectName("PageTitle")
         subtitle = QLabel(
-            "Mỗi phòng có bộ nhóm và số lượt riêng. "
-            "Chỉ các nhóm đang dùng mới xuất hiện ở đây."
+            "Mỗi phòng có danh sách nhóm và số lượt đăng riêng. "
+            "Chỉ hiển thị các nhóm đang bật."
         )
         subtitle.setProperty("muted", True)
         subtitle.setWordWrap(True)
@@ -99,7 +99,7 @@ class GroupSelectorDialog(QDialog):
         tools = QHBoxLayout()
         self.search_input = QLineEdit()
         self.search_input.setProperty("search", True)
-        self.search_input.setPlaceholderText("Tìm theo tên hoặc URL nhóm...")
+        self.search_input.setPlaceholderText("Tìm theo tên hoặc URL nhóm…")
         self.search_input.setClearButtonEnabled(True)
         self.search_input.textChanged.connect(self._filter_rows)
         add_button = QPushButton("Thêm nhóm mới")
@@ -126,7 +126,7 @@ class GroupSelectorDialog(QDialog):
         )
         save = self.buttons.button(QDialogButtonBox.StandardButton.Save)
         cancel = self.buttons.button(QDialogButtonBox.StandardButton.Cancel)
-        save.setText("Xác nhận nhóm")
+        save.setText("Lưu lựa chọn")
         save.setIcon(QIcon())
         save.setProperty("role", "primary")
         cancel.setText("Hủy")
@@ -149,8 +149,8 @@ class GroupSelectorDialog(QDialog):
         ]
         if not groups:
             empty = EmptyState(
-                "Chưa có nhóm đang dùng",
-                "Thêm hoặc bật một nhóm trước khi tạo hàng chờ đăng.",
+                "Chưa có nhóm nào đang bật",
+                "Thêm hoặc bật ít nhất một nhóm để tiếp tục.",
                 "Thêm nhóm mới",
             )
             empty.action_requested.connect(self._add_group)
@@ -193,7 +193,7 @@ class GroupSelectorDialog(QDialog):
             QMessageBox.warning(
                 self,
                 "Chưa chọn nhóm",
-                "Hãy chọn ít nhất một nhóm cho phòng này.",
+                "Chọn ít nhất một nhóm cho phòng này.",
             )
             return
         self.accept()

@@ -34,7 +34,7 @@ class AccountSessionRegistry:
         with cls._lock:
             if account_name in cls._running_accounts:
                 raise AccountSessionBusyError(
-                    f"Tài khoản '{account_name}' đang được sử dụng"
+                    f"Tài khoản “{account_name}” đang chạy"
                 )
             cls._running_accounts.add(account_name)
 
@@ -49,8 +49,8 @@ class AccountSessionRegistry:
                     )
                 except BlockingIOError as error:
                     raise AccountSessionBusyError(
-                        f"Tài khoản '{account_name}' đang được sử dụng "
-                        "bởi một tiến trình khác"
+                        f"Tài khoản “{account_name}” đang được một cửa sổ "
+                        "khác sử dụng"
                     ) from error
             yield
         finally:

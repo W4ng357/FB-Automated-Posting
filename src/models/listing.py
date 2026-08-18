@@ -16,16 +16,16 @@ class Listing:
 
     def __post_init__(self) -> None:
         if not self.id.strip():
-            raise ValueError("Listing id cannot be empty")
+            raise ValueError("Mã phòng không được để trống.")
 
         if not self.title.strip():
-            raise ValueError("Listing title cannot be empty")
+            raise ValueError("Tên phòng không được để trống.")
 
         if not self.location.strip():
-            raise ValueError("Listing location cannot be empty")
+            raise ValueError("Địa chỉ phòng không được để trống.")
 
         if self.price < 0:
-            raise ValueError("Price cannot be negative")
+            raise ValueError("Giá thuê không được là số âm.")
 
         if self.area is not None and self.area <= 0:
-            raise ValueError("Area must be greater than 0")
+            raise ValueError("Diện tích phải lớn hơn 0.")

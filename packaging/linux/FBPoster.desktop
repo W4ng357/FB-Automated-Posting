@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=FB Poster
+GenericName=Facebook Automated Posting Manager
+Comment=Bảng điều phối đăng bài Facebook tự động cục bộ
+Exec=FBPoster
+Icon=FBPoster
+Terminal=false
+Categories=Utility;Automation;
+Keywords=Facebook;Automation;Posting;RealEstate;

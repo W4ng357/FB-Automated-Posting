@@ -232,8 +232,12 @@ QLabel[resultDetail="true"] {
 }
 
 QLabel[resultGroup="true"] {
-    color: #E4E4E9;
-    font-weight: 600;
+    background-color: #241A38;
+    color: #D9CCFF;
+    border: 1px solid #4D3475;
+    border-radius: 7px;
+    padding: 7px 10px;
+    font-weight: 700;
 }
 
 QLabel[badge="true"],

@@ -2,8 +2,7 @@ from pathlib import Path
 from shutil import rmtree
 
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-ACCOUNTS_DIR = ROOT_DIR / "data" / "accounts"
+from app_paths import ACCOUNTS_DIR
 SUPPORTED_AVATAR_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 MAX_AVATAR_BYTES = 5 * 1024 * 1024
 

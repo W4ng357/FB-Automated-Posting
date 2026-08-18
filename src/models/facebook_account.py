@@ -78,5 +78,5 @@ class FacebookAccount:
         if self.alias.strip() and facebook_name:
             return facebook_name
         if self.is_synced:
-            return "Tên và ảnh đại diện được đồng bộ từ Facebook"
-        return "Chưa lấy tên và ảnh đại diện từ Facebook"
+            return "Đã lấy tên và ảnh đại diện từ Facebook"
+        return "Chưa lấy thông tin từ Facebook"

@@ -97,7 +97,7 @@ class FacebookAccountServiceTest(unittest.TestCase):
     def test_busy_account_cannot_be_deleted(self) -> None:
         account = self.service.create_pending_account()
         with AccountSessionRegistry.exclusive(account.id):
-            with self.assertRaisesRegex(RuntimeError, "đang được sử dụng"):
+            with self.assertRaisesRegex(RuntimeError, "đang chạy"):
                 self.service.delete_account(account.id)
         self.assertIsNotNone(self.service.get_by_id(account.id))
 
@@ -115,7 +115,7 @@ class FacebookAccountServiceTest(unittest.TestCase):
             fcntl.LOCK_EX | fcntl.LOCK_NB,
         )
         try:
-            with self.assertRaisesRegex(RuntimeError, "tiến trình khác"):
+            with self.assertRaisesRegex(RuntimeError, "cửa sổ khác"):
                 self.service.delete_account(account.id)
         finally:
             fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
@@ -158,7 +158,7 @@ class FacebookAccountServiceTest(unittest.TestCase):
         self.assertFalse(corrupted.is_synced)
         self.assertEqual(corrupted.display_name, account.id)
 
-        with self.assertRaisesRegex(ValueError, "Không đọc được tên"):
+        with self.assertRaisesRegex(ValueError, "Không lấy được tên"):
             self.service.apply_metadata(
                 account.id,
                 FacebookProfileMetadata(

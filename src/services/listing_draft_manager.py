@@ -4,8 +4,7 @@ from uuid import uuid4
 from services.listing_asset_manager import ListingAssetManager
 
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-DRAFTS_DIR = ROOT_DIR / "data" / "drafts"
+from app_paths import DRAFTS_DIR
 
 
 class ListingDraftManager:

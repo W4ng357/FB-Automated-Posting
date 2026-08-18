@@ -57,11 +57,11 @@ class GroupDialog(QDialog):
         root.setContentsMargins(24, 22, 24, 20)
         root.setSpacing(16)
         title = QLabel(
-            "Chỉnh sửa nhóm" if group else "Thêm nhóm vào thư viện"
+            "Chỉnh sửa nhóm" if group else "Thêm nhóm Facebook"
         )
         title.setObjectName("PageTitle")
         subtitle = QLabel(
-            "Ứng dụng dùng phiên Facebook đã chọn để đọc tên nhóm trong luồng nền."
+            "Chọn một tài khoản đã đăng nhập để lấy tên nhóm từ Facebook."
         )
         subtitle.setProperty("muted", True)
         subtitle.setWordWrap(True)
@@ -82,7 +82,7 @@ class GroupDialog(QDialog):
         form.setVerticalSpacing(13)
         self.url_input = QLineEdit(group.url if group else "")
         self.url_input.setPlaceholderText(
-            "https://www.facebook.com/groups/..."
+            "https://www.facebook.com/groups/…"
         )
         self.account_combo = QComboBox()
         accounts = [
@@ -98,25 +98,25 @@ class GroupDialog(QDialog):
                 self.account_combo.setCurrentIndex(preferred_index)
         self.name_input = QLineEdit(group.name if group else "")
         self.name_input.setPlaceholderText(
-            "Tên sẽ được điền sau khi lấy từ Facebook"
+            "Tên nhóm sẽ tự điền sau khi lấy từ Facebook"
         )
-        self.enabled_input = QCheckBox("Cho phép chọn khi tạo hàng chờ")
+        self.enabled_input = QCheckBox("Cho phép chọn khi lên kế hoạch đăng")
         self.enabled_input.setChecked(group.enabled if group else True)
         form.addRow("URL nhóm *", self.url_input)
-        form.addRow("Phiên Facebook *", self.account_combo)
+        form.addRow("Tài khoản Facebook *", self.account_combo)
         form.addRow("Tên nhóm *", self.name_input)
         form.addRow("Trạng thái", self.enabled_input)
         form_panel_layout.addLayout(form)
         root.addWidget(form_panel)
 
         self.status_label = QLabel(
-            "Chọn phiên rồi lấy tên nhóm."
+            "Chọn tài khoản, rồi bấm “Lấy tên nhóm”."
             if accounts
-            else "Chưa có phiên Facebook đã lưu."
+            else "Chưa có tài khoản Facebook nào đăng nhập."
         )
         self.status_label.setProperty("muted", True)
         self.status_label.setWordWrap(True)
-        self.fetch_button = QPushButton("Lấy tên từ Facebook")
+        self.fetch_button = QPushButton("Lấy tên nhóm")
         self.fetch_button.setProperty("role", "primary")
         self.fetch_button.setProperty("density", "compact")
         self.fetch_button.setEnabled(bool(accounts))
@@ -168,8 +168,8 @@ class GroupDialog(QDialog):
         if not account:
             QMessageBox.warning(
                 self,
-                "Chưa chọn phiên Facebook",
-                "Hãy tạo hoặc chọn một phiên Facebook trước.",
+                "Chưa chọn tài khoản Facebook",
+                "Hãy chọn một tài khoản đã đăng nhập.",
             )
             return
 
@@ -178,7 +178,7 @@ class GroupDialog(QDialog):
         self.save_button.setEnabled(False)
         self.account_combo.setEnabled(False)
         self.status_label.setText(
-            "Đang mở phiên Facebook và đọc tên nhóm..."
+            "Đang mở Facebook để lấy tên nhóm…"
         )
 
         thread = QThread(self)
@@ -202,14 +202,14 @@ class GroupDialog(QDialog):
         self.metadata = metadata
         self._metadata_url = self.url_input.text().strip()
         self.name_input.setText(metadata.name)
-        self.status_label.setText("Đã lấy tên nhóm từ Facebook.")
+        self.status_label.setText("Đã cập nhật tên nhóm.")
 
     def _on_metadata_error(self, message: str) -> None:
         self._metadata_url = self.url_input.text().strip()
         self._save_after_fetch = False
         self.status_label.setText(
-            "Không lấy được tên nhóm. Kiểm tra phiên đăng nhập "
-            "hoặc nhập tên thủ công rồi lưu lại."
+            "Không lấy được tên nhóm. Hãy kiểm tra đăng nhập "
+            "hoặc nhập tên nhóm thủ công."
         )
         QMessageBox.warning(self, "Không thể đọc tên nhóm", message)
 
@@ -247,7 +247,7 @@ class GroupDialog(QDialog):
             name = self.name_input.text().strip()
             if not name:
                 raise ValueError(
-                    "Chưa có tên nhóm. Hãy lấy tên từ Facebook hoặc nhập thủ công."
+                    "Hãy lấy tên nhóm từ Facebook hoặc nhập tên thủ công."
                 )
             if self.group is None:
                 self.saved_group = self.group_service.create_group(
@@ -273,7 +273,7 @@ class GroupDialog(QDialog):
             QMessageBox.information(
                 self,
                 "Đang lấy tên nhóm",
-                "Hãy chờ thao tác với phiên Facebook hoàn tất rồi đóng cửa sổ.",
+                "Ứng dụng đang lấy tên nhóm. Chờ hoàn tất rồi đóng cửa sổ.",
             )
             return
         super().reject()

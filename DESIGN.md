@@ -540,6 +540,10 @@ running are skipped while eligible remaining accounts still start. The button
 uses “Đang khởi động…” during the synchronous launch pass and becomes disabled
 only when no eligible account remains. Per-account running state is set before
 any page-level signal is emitted, avoiding a transient false-ready state.
+The adjacent muted-red “Dừng tất cả” action sends the same safe-stop request to
+every running account. It is enabled only while at least one account can still
+receive that request, then reads “Đang chờ dừng…” until all current posts reach
+their safe boundary.
 After browser work closes, the one-shot posting `QThread` finishes before the
 GUI releases it. Finished `QThread` wrappers remain owned by
 their account tab until tab teardown; they are not deferred-deleted while Qt is
@@ -552,13 +556,23 @@ Each configured count is an attempt budget: a failure consumes the current
 attempt but the target remains eligible in later rounds until that budget is
 exhausted. The total shown at start remains the denominator for the full run,
 including a safely stopped run.
-The log uses the terminal treatment and prepends `HH:mm:ss`. Each attempt
+The log uses the terminal treatment and prepends `HH:mm:ss`. Every run is
+bounded by labeled `============` separators. Its opening block identifies the
+run number, Facebook account/session, room/group/attempt totals and the groups
+configured for each room. Its closing block summarizes processed, linked
+success, interrupted-link, failed and remaining counts. Each attempt
 increments the per-account “Kết quả (n)” button and updates its modeless result
 dialog even while posting continues. Result rows are newest-first and show the
 room's first image, room ID/price/area/address, posting timestamp, group name,
-state and recovery detail. “Thành công” requires both a successful post and a
-captured permalink. A successful post without a permalink is “Bị gián đoạn”
-with the sentence “Đã đăng bài nhưng không lấy được liên kết để kiểm tra.” A
+state and recovery detail. Each compact row reads horizontally from room to
+destination to outcome: the room facts stay tightly stacked beside a 80×68px
+thumbnail, the group name occupies the center in a soft-purple highlighted
+label, and time/status/action stay together at the right without vertical
+stretch space. Balanced flexible regions hold the group near the row's center,
+with a 24px optical correction to the right so it reads centrally beside the
+denser room details. “Thành công” requires both a successful post and a
+captured permalink. A successful post without a permalink is “Thiếu liên kết”
+with the sentence “Đã đăng nhưng chưa lấy được liên kết bài viết.” A
 failed attempt is “Thất bại” and shows its error. The action opens the post when
 a permalink exists and otherwise offers “Mở nhóm” for direct checking.
 
@@ -569,17 +583,18 @@ Dialogs use a page-scale title, muted explanation, task content, and a bottom ac
 ### Vietnamese copy voice
 
 - Use concise nouns for destinations and sections: “Phòng”, “Nhóm”, “Đăng bài”, “Tiến trình”, “Kết quả”.
-- Start actions with a direct verb and name the object: “Thêm phòng”, “Chọn nhóm”, “Gỡ khỏi hàng chờ”, “Lưu phòng”.
+- Start actions with a direct verb and name the object: “Thêm phòng”, “Chọn nhóm”, “Bỏ khỏi kế hoạch”, “Lưu phòng”.
 - State facts with quantities and units: “2 phòng · 5 lượt”, “0/0 lượt thành công”, “1 ảnh đã lưu”.
 - Use a calm recovery instruction after a problem: say what failed, then what the operator can check or do next.
 - Preserve IDs, account names, URLs, timestamps, prices, square metres, and the middle-dot separator exactly where they carry operational meaning.
-- Never imply success from elapsed time or generic activity. Use “Đăng thành công”, “Đăng thất bại”, “Chưa lấy được liên kết bài viết”, and other backend-supported facts.
+- Prefer everyday product language over implementation terms: use “phiên đăng nhập”, “ảnh đại diện”, and “kế hoạch đăng”; avoid exposing “Chromium profile”, “session”, “avatar”, “luồng nền”, or “bộ máy đăng bài”.
+- Never imply success from elapsed time or generic activity. Use “Đã đăng xong”, “Đăng không thành công”, “Chưa lấy được liên kết bài viết”, and other backend-supported facts.
 
 ### Accessibility contract
 
 - Keep body text at the implemented 14px base and log text at 13px; do not shrink muted metadata below the log size.
 - Keep standard button and form focus borders visible. If navigation or checkbox styling changes, preserve a distinct keyboard-focus cue in addition to checked state.
-- Pair semantic color with words or counts. “Đang dùng”, “Đã ẩn”, “Đang chạy”, “Hoàn tất”, and “Lỗi” must remain readable without color perception.
+- Pair semantic color with words or counts. “Đang bật”, “Đã ẩn”, “Đang chạy”, “Hoàn tất”, and “Lỗi” must remain readable without color perception.
 - Preserve the 44px navigation minimum and the explicitly implemented 42px minimum on major page/start actions.
 - Keep long help and result text wrapped where the widgets already enable word wrapping. Keep group URLs mouse-selectable in cards and selection rows.
 - Maintain text labels on actions; the current interface does not depend on unlabeled icons.

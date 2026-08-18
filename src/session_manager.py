@@ -1,13 +1,9 @@
 from pathlib import Path
 
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
-# __file__ is src/session_manager.py, and .resolve() is needed to get the absolute path of the file
-# Which is /home/wanwy/Documents/Prj/FB-Automated-Posting/src/
-# Adding .parent take us back to the previous directory
-# Which is /home/wanwy/Documents/Prj/FB-Automated-Posting/src/
-# .parent.parent means ROOT_DIR is /home/wanwy/Documents/Prj/FB-Automated-Posting
-SESSIONS_DIR = ROOT_DIR / "browser_sessions"
+from app_paths import BROWSER_SESSIONS_DIR
+
+SESSIONS_DIR = BROWSER_SESSIONS_DIR
 
 
 def get_session_path(account_name: str) -> Path:

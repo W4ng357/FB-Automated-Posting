@@ -169,7 +169,7 @@ class ListingServiceTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             ValueError,
-            "Unsupported image type",
+            "Định dạng ảnh chưa được hỗ trợ",
         ):
             self.service.create_listing(
                 title="Phòng trọ",
@@ -190,19 +190,19 @@ class ListingServiceTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             KeyError,
-            "Listing not found: R999",
+            "Không tìm thấy phòng R999",
         ):
             self.service.add_images("R999", [source])
 
         with self.assertRaisesRegex(
             KeyError,
-            "Listing not found: R999",
+            "Không tìm thấy phòng R999",
         ):
             self.service.get_images("R999")
 
         with self.assertRaisesRegex(
             KeyError,
-            "Listing not found: R999",
+            "Không tìm thấy phòng R999",
         ):
             self.service.delete_listing("R999")
 
@@ -216,7 +216,7 @@ class ListingServiceTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             ValueError,
-            "Listing is disabled",
+            "đang bị ẩn",
         ):
             self.service.prepare_for_posting(disabled.id)
 
@@ -228,7 +228,7 @@ class ListingServiceTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             ValueError,
-            "Listing has no images",
+            "chưa có ảnh",
         ):
             self.service.prepare_for_posting(enabled.id)
 
@@ -296,7 +296,7 @@ class ListingServiceTest(unittest.TestCase):
     def test_invalid_model_data_and_id_update_are_rejected(self) -> None:
         with self.assertRaisesRegex(
             ValueError,
-            "Price cannot be negative",
+            "Giá thuê không được là số âm",
         ):
             self.service.create_listing(
                 title="Phòng trọ",
@@ -306,7 +306,7 @@ class ListingServiceTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             ValueError,
-            "Area must be greater than 0",
+            "Diện tích phải lớn hơn 0",
         ):
             self.service.create_listing(
                 title="Phòng trọ",
@@ -323,7 +323,7 @@ class ListingServiceTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             ValueError,
-            "Listing ID cannot be changed",
+            "Không thể thay đổi mã phòng",
         ):
             self.service.update_listing(
                 listing.id,
@@ -338,7 +338,7 @@ class ListingServiceTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             ValueError,
-            "Invalid JSON in listings file",
+            "Tệp danh sách phòng có JSON không hợp lệ",
         ):
             self.repository.get_all()
 
@@ -357,7 +357,7 @@ class ListingServiceTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             FileNotFoundError,
-            "Image not found",
+            "Không tìm thấy ảnh",
         ):
             self.service.add_images(
                 listing.id,
@@ -367,7 +367,7 @@ class ListingServiceTest(unittest.TestCase):
     def test_asset_paths_cannot_escape_configured_directory(self) -> None:
         with self.assertRaisesRegex(
             ValueError,
-            "Invalid listing ID",
+            "Mã phòng không hợp lệ",
         ):
             self.asset_manager.delete_listing_assets(
                 "../outside"
@@ -381,7 +381,7 @@ class ListingServiceTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             ValueError,
-            "Invalid image name",
+            "Tên ảnh không hợp lệ",
         ):
             self.service.remove_image(
                 listing.id,

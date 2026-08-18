@@ -174,6 +174,39 @@ class AccountPostingServiceTest(unittest.TestCase):
         thread.join(2)
         self.assertFalse(AccountSessionRegistry.is_busy("acc01"))
 
+    def test_unknown_group_name_uses_name_saved_in_plan(self) -> None:
+        playwright = FakePlaywrightManager()
+        group_url = "https://facebook.com/groups/1"
+
+        def post_with_unknown_group(*, group_url, **_kwargs):
+            return PostResult(
+                group_url=group_url,
+                group_name="Unknown Group",
+                success=True,
+            )
+
+        plan = AccountPostingPlan(
+            "acc01",
+            [
+                ListingPostingTask(
+                    self.first.id,
+                    self.first.title,
+                    [GroupTarget(group_url, 1)],
+                    {group_url: "Nhóm đã lưu"},
+                )
+            ],
+        )
+        service = AccountPostingService(
+            listing_service=self.listing_service,
+            playwright_factory=lambda: playwright,
+            posting_function=post_with_unknown_group,
+            wait_function=lambda *_args, **_kwargs: None,
+        )
+
+        entries = service.run_plan(self.session_path, plan)
+
+        self.assertEqual(entries[0].result.group_name, "Nhóm đã lưu")
+
     def test_failed_attempt_does_not_skip_remaining_slots(self) -> None:
         playwright = FakePlaywrightManager()
         post_results = iter([False, True, True])
@@ -285,7 +318,7 @@ class AccountPostingServiceTest(unittest.TestCase):
         self.assertEqual(progress[-1].completed, 1)
         self.assertEqual(progress[-1].failed, 0)
         self.assertTrue(
-            any("đang thử lại 1/1" in item.message for item in progress)
+            any("Đang thử lại lần cuối" in item.message for item in progress)
         )
 
     def test_stop_ignores_close_error_from_already_closed_browser(self) -> None:

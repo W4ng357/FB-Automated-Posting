@@ -108,7 +108,7 @@ class ListingService:
 
         if "id" in changes:
             raise ValueError(
-                "Listing ID cannot be changed"
+                "Không thể thay đổi mã phòng."
             )
 
         if not changes:
@@ -133,7 +133,7 @@ class ListingService:
 
         if not deleted:
             raise KeyError(
-                f"Listing not found: {listing_id}"
+                f"Không tìm thấy phòng {listing_id}."
             )
 
         if delete_images:
@@ -186,8 +186,7 @@ class ListingService:
 
         if not caption:
             raise ValueError(
-                f"Generated caption is empty: "
-                f"{listing_id}"
+                f"Nội dung đăng của phòng {listing_id} đang trống."
             )
 
         return caption
@@ -200,7 +199,7 @@ class ListingService:
 
         if not listing.enabled:
             raise ValueError(
-                f"Listing is disabled: {listing_id}"
+                f"Phòng {listing_id} đang bị ẩn."
             )
 
         images = self.asset_manager.get_images(
@@ -209,15 +208,14 @@ class ListingService:
 
         if not images:
             raise ValueError(
-                f"Listing has no images: {listing_id}"
+                f"Phòng {listing_id} chưa có ảnh."
             )
 
         caption = generate_listing_caption(listing)
 
         if not caption:
             raise ValueError(
-                f"Generated caption is empty: "
-                f"{listing_id}"
+                f"Nội dung đăng của phòng {listing_id} đang trống."
             )
 
         return caption, images
@@ -230,7 +228,7 @@ class ListingService:
 
         if listing is None:
             raise KeyError(
-                f"Listing not found: {listing_id}"
+                f"Không tìm thấy phòng {listing_id}."
             )
 
         return listing

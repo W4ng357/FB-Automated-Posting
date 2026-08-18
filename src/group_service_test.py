@@ -80,9 +80,8 @@ class GroupServiceTest(unittest.TestCase):
             "https://facebook.com/groups/123",
             "Nhóm một",
         )
-        with self.assertRaisesRegex(ValueError, "already exists"):
+        with self.assertRaisesRegex(ValueError, "đã được lưu"):
             self.service.create_group(
                 "https://www.facebook.com/groups/123?ref=share",
                 "Bị trùng",
             )
-

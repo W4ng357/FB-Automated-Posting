@@ -88,7 +88,7 @@ class FacebookAccountService:
         account = self._require_account(account_id)
         clean_name = normalize_facebook_name(metadata.name)
         if not clean_name:
-            raise ValueError("Không đọc được tên tài khoản Facebook")
+            raise ValueError("Không lấy được tên tài khoản Facebook.")
         avatar_path = account.avatar_path
         if metadata.avatar_data:
             avatar_path = self.asset_manager.save_avatar(
@@ -159,7 +159,7 @@ class FacebookAccountService:
     def _require_account(self, account_id: str) -> FacebookAccount:
         account = self.get_by_id(account_id)
         if account is None:
-            raise KeyError(f"Không tìm thấy tài khoản {account_id}")
+            raise KeyError(f"Không tìm thấy tài khoản {account_id}.")
         if self.repository.get_by_id(account_id) is None:
             account = replace(
                 account,

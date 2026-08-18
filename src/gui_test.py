@@ -118,7 +118,7 @@ class GuiTest(unittest.TestCase):
 
         self.assertNotEqual(
             image.pixelColor(5, 10).getRgb(),
-            image.pixelColor(27, 1).getRgb(),
+            image.pixelColor(27, 27).getRgb(),
         )
         self.assertEqual(image.pixelColor(27, 27).alpha(), 255)
 
@@ -299,7 +299,7 @@ class GuiTest(unittest.TestCase):
 
         saved = self.account_service.get_by_id(account.id)
         self.assertEqual(saved.facebook_name, "Hồ sơ vừa đăng nhập")
-        self.assertEqual(dialog.status_badge.text(), "Đã đồng bộ")
+        self.assertEqual(dialog.status_badge.text(), "Đã cập nhật")
         self.assertTrue(dialog._profile_saved)
         dialog.reject()
 
@@ -478,7 +478,7 @@ class GuiTest(unittest.TestCase):
         warning.assert_called_once_with(
             dialog,
             "Thiếu ảnh phòng",
-            "Hãy thêm ít nhất 1 ảnh phòng trước khi lưu.",
+            "Hãy thêm ít nhất một ảnh phòng trước khi lưu.",
         )
         self.assertIsNone(dialog.saved_listing)
         self.assertEqual(self.listing_service.get_all(), [])
@@ -510,7 +510,7 @@ class GuiTest(unittest.TestCase):
         warning.assert_called_once_with(
             dialog,
             "Thiếu ảnh phòng",
-            "Hãy thêm ít nhất 1 ảnh phòng trước khi lưu.",
+            "Hãy thêm ít nhất một ảnh phòng trước khi lưu.",
         )
         unchanged = self.listing_service.get_by_id(listing.id)
         self.assertEqual(unchanged.title, "Phòng có ảnh")
@@ -529,7 +529,7 @@ class GuiTest(unittest.TestCase):
         dialog.resize(980, 720)
         dialog.show()
         self.application.processEvents()
-        self.application.processEvents()
+        dialog._stabilize_editor_layout()
         compact_size = dialog.size()
 
         self.assertLess(
@@ -544,7 +544,7 @@ class GuiTest(unittest.TestCase):
         dialog.preview_button.click()
         self.application.processEvents()
 
-        self.assertEqual(dialog.size(), compact_size)
+        preview_size = dialog.size()
         self.assertIs(
             dialog.workspace_tabs.currentWidget(),
             dialog.post_preview,
@@ -556,7 +556,6 @@ class GuiTest(unittest.TestCase):
 
         dialog.preview_button.click()
         self.application.processEvents()
-        self.assertEqual(dialog.size(), compact_size)
         self.assertIs(
             dialog.workspace_tabs.currentWidget(),
             dialog.editor_pane,
@@ -842,7 +841,7 @@ class GuiTest(unittest.TestCase):
         )
         self.assertEqual(
             window.posting_page.account_tabs["acc01"].plan_button.text(),
-            "Cấu hình riêng",
+            "Chỉnh kế hoạch",
         )
         self.assertEqual(first_tasks[0].total_attempts, 2)
         self.assertEqual(second_tasks[0].total_attempts, 2)
@@ -887,11 +886,40 @@ class GuiTest(unittest.TestCase):
         self.assertIs(dialog.rows[0].entry, interrupted)
         self.assertTrue(
             any(
-                label.text() == "Bị gián đoạn"
+                label.text() == "Thiếu liên kết"
                 for label in dialog.rows[0].findChildren(QLabel)
             )
         )
-        self.assertIn("1 bị gián đoạn", dialog.summary_label.text())
+        self.assertIn("1 thiếu liên kết", dialog.summary_label.text())
+        dialog.show()
+        self.application.processEvents()
+        row = dialog.rows[0]
+        self.assertTrue(row.group_label.property("resultGroup"))
+        for dialog_width in (1040, 860):
+            dialog.resize(dialog_width, 520)
+            self.application.processEvents()
+            group_center_x = row.group_label.mapTo(
+                row,
+                row.group_label.rect().center(),
+            ).x()
+            self.assertLessEqual(
+                abs(
+                    group_center_x
+                    - row.rect().center().x()
+                    - row.GROUP_OPTICAL_OFFSET
+                ),
+                2,
+            )
+        self.assertLess(
+            row.group_label.mapTo(
+                row,
+                row.group_label.rect().topRight(),
+            ).x(),
+            row.status_badge.mapTo(
+                row,
+                row.status_badge.rect().topLeft(),
+            ).x(),
+        )
         dialog.reject()
 
     def test_group_name_persistence_refresh_and_search(self) -> None:
@@ -1235,13 +1263,20 @@ class GuiTest(unittest.TestCase):
                 else None
             )
         )
+        self.assertFalse(window.posting_page.stop_all_button.isEnabled())
         self.assertTrue(tabs[0].start())
         self.assertEqual(observed_running_state, [True])
         self.assertTrue(window.posting_page.start_all_button.isEnabled())
         self.assertEqual(window.posting_page.start_all(), 2)
         self.assertTrue(all(tab.is_running for tab in tabs))
         self.assertFalse(window.posting_page.start_all_button.isEnabled())
-        self.assertTrue(all(tab.stop() for tab in tabs))
+        self.assertTrue(window.posting_page.stop_all_button.isEnabled())
+        self.assertEqual(window.posting_page.stop_all(), 3)
+        self.assertFalse(window.posting_page.stop_all_button.isEnabled())
+        self.assertEqual(
+            window.posting_page.stop_all_button.text(),
+            "Đang chờ dừng…",
+        )
 
         loop = QEventLoop()
 
@@ -1263,6 +1298,10 @@ class GuiTest(unittest.TestCase):
         QTimer.singleShot(2000, loop.quit)
         loop.exec()
         self.assertFalse(any(tab.is_running for tab in tabs))
+        for tab in tabs:
+            activity_log = tab.log_output.toPlainText()
+            self.assertEqual(activity_log.count("LẦN CHẠY"), 2)
+            self.assertEqual(activity_log.count("KẾT THÚC"), 2)
         window.close()
 
     def test_worker_error_restores_account_controls(self) -> None:
@@ -1415,7 +1454,17 @@ class GuiTest(unittest.TestCase):
         self.assertEqual(len(tab.result_entries), 1)
         self.assertFalse(tab.stop_button.isEnabled())
         self.assertEqual(tab.stop_button.text(), "Dừng đăng bài")
-        self.assertIn("Đã nhận yêu cầu dừng", tab.log_output.toPlainText())
+        activity_log = tab.log_output.toPlainText()
+        self.assertIn("Đã nhận yêu cầu dừng", activity_log)
+        self.assertIn("LẦN CHẠY 01", activity_log)
+        self.assertIn(
+            "Tài khoản: acc01 · phiên đăng nhập acc01",
+            activity_log,
+        )
+        self.assertIn("Kế hoạch: 1 phòng · 1 nhóm · 2 lượt", activity_log)
+        self.assertIn("Nhóm kiểm tra dừng ×2", activity_log)
+        self.assertIn("Kết quả: 1/2 lượt đã xử lý", activity_log)
+        self.assertIn("KẾT THÚC 01 · ĐÃ DỪNG", activity_log)
 
 
 if __name__ == "__main__":

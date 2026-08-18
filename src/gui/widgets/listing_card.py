@@ -48,7 +48,7 @@ class ListingCard(QFrame):
         thumbnail.setToolTip(
             str(image_paths[0])
             if image_paths
-            else "Phòng chưa có ảnh đại diện"
+            else "Phòng chưa có ảnh"
         )
         root_layout.addWidget(thumbnail)
 
@@ -97,7 +97,7 @@ class ListingCard(QFrame):
         side = QVBoxLayout()
         side.setSpacing(10)
         status = StatusBadge(
-            "Đang dùng" if listing.enabled else "Đã ẩn",
+            "Đang bật" if listing.enabled else "Đã ẩn",
             "enabled" if listing.enabled else "disabled",
         )
         side.addWidget(status, 0, Qt.AlignmentFlag.AlignRight)

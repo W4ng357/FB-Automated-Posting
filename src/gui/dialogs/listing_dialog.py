@@ -151,7 +151,7 @@ class ListingDialog(QDialog):
         )
         title.setObjectName("PageTitle")
         subtitle = QLabel(
-            "Nhập thông tin và ảnh phòng; dữ liệu được lưu cục bộ trên máy này."
+            "Thông tin và ảnh phòng chỉ được lưu trên máy này."
         )
         subtitle.setProperty("muted", True)
         subtitle.setWordWrap(True)
@@ -305,7 +305,7 @@ class ListingDialog(QDialog):
         )
         layout.addWidget(self.contact_input, 8, 0)
 
-        self.enabled_input = QCheckBox("Sẵn sàng đưa vào hàng chờ đăng")
+        self.enabled_input = QCheckBox("Sẵn sàng đăng")
         self.enabled_input.setChecked(True)
         layout.addWidget(
             self._field_label("Trạng thái", self.enabled_input), 7, 1
@@ -325,7 +325,7 @@ class ListingDialog(QDialog):
         title.setObjectName("SectionTitle")
         self.image_count_label = QLabel()
         self.image_count_label.setProperty("muted", True)
-        self.refresh_images_button = QPushButton("Làm mới")
+        self.refresh_images_button = QPushButton("Tải lại ảnh")
         self.refresh_images_button.setProperty("role", "ghost")
         self.refresh_images_button.setProperty("density", "compact")
         self.refresh_images_button.clicked.connect(
@@ -347,8 +347,7 @@ class ListingDialog(QDialog):
         layout.addLayout(header)
 
         note = QLabel(
-            "Bắt buộc có ít nhất 1 ảnh. Ảnh tự sắp xếp theo chiều rộng "
-            "và không tạo cuộn ngang."
+            "Cần ít nhất một ảnh. Ảnh sẽ tự sắp xếp theo chiều rộng cửa sổ."
         )
         note.setProperty("muted", True)
         note.setWordWrap(True)
@@ -489,12 +488,12 @@ class ListingDialog(QDialog):
         visible_images = self._visible_images()
         count = len(visible_images)
         self.image_count_label.setText(
-            f"· {count} ảnh" if count else "· Chưa có ảnh"
+            f"· {count} ảnh" if count else "· Chưa thêm ảnh"
         )
         if not visible_images:
             empty_label = QLabel(
-                "Chưa có ảnh. Hãy thêm ít nhất 1 ảnh hoặc chép ảnh vào "
-                "thư mục phòng trước khi lưu."
+                "Thêm ít nhất một ảnh hoặc chép ảnh vào thư mục phòng "
+                "trước khi lưu."
             )
             empty_label.setProperty("muted", True)
             empty_label.setWordWrap(True)
@@ -542,9 +541,9 @@ class ListingDialog(QDialog):
         title = self.title_input.text().strip()
         address = self.address_input.text().strip()
         if not title:
-            raise ValueError("Cần nhập tên phòng")
+            raise ValueError("Hãy nhập tên phòng.")
         if not address:
-            raise ValueError("Cần nhập địa chỉ phòng")
+            raise ValueError("Hãy nhập địa chỉ phòng.")
         area_value = self.area_input.value()
         return {
             "title": title,
@@ -591,7 +590,7 @@ class ListingDialog(QDialog):
         QMessageBox.warning(
             self,
             "Thiếu ảnh phòng",
-            "Hãy thêm ít nhất 1 ảnh phòng trước khi lưu.",
+            "Hãy thêm ít nhất một ảnh phòng trước khi lưu.",
         )
         return False
 

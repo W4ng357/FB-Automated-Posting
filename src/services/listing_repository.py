@@ -8,13 +8,9 @@ from pathlib import Path
 from models.listing import Listing
 
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
+from app_paths import LISTINGS_FILE
 
-DEFAULT_LISTINGS_FILE = (
-    ROOT_DIR
-    / "data"
-    / "listings.json"
-)
+DEFAULT_LISTINGS_FILE = LISTINGS_FILE
 
 
 _LISTINGS_LOCK = threading.RLock()
@@ -46,19 +42,19 @@ class ListingRepository:
             data = json.loads(raw_data)
         except json.JSONDecodeError as error:
             raise ValueError(
-                f"Invalid JSON in listings file: "
+                f"Tệp danh sách phòng có JSON không hợp lệ: "
                 f"{self.file_path}"
             ) from error
 
         if not isinstance(data, list):
             raise ValueError(
-                f"Listings file must contain a JSON list: "
+                f"Dữ liệu phòng phải là một danh sách JSON: "
                 f"{self.file_path}"
             )
 
         if not all(isinstance(item, dict) for item in data):
             raise ValueError(
-                f"Every listing must be a JSON object: "
+                f"Mỗi phòng phải là một đối tượng JSON: "
                 f"{self.file_path}"
             )
 
@@ -131,7 +127,7 @@ class ListingRepository:
 
                 if "id" in changes:
                     raise ValueError(
-                        "Listing ID cannot be changed"
+                        "Không thể thay đổi mã phòng."
                     )
 
                 invalid_fields = (
@@ -141,7 +137,7 @@ class ListingRepository:
 
                 if invalid_fields:
                     raise ValueError(
-                        f"Invalid fields: {invalid_fields}"
+                        f"Trường dữ liệu không hợp lệ: {invalid_fields}"
                     )
 
                 data.update(changes)
@@ -155,7 +151,7 @@ class ListingRepository:
                 return updated_listing
 
             raise KeyError(
-                f"Listing not found: {listing_id}"
+                f"Không tìm thấy phòng {listing_id}."
             )
 
     def delete(

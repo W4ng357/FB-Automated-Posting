@@ -5,14 +5,7 @@ from services.content_loader import (
     SUPPORTED_IMAGE_EXTENSIONS,
 )
 
-
-ROOT_DIR = Path(__file__).resolve().parents[2]
-
-LISTINGS_DIR = (
-    ROOT_DIR
-    / "data"
-    / "listings"
-)
+from app_paths import LISTINGS_DIR
 
 
 class ListingAssetManager:
@@ -28,7 +21,7 @@ class ListingAssetManager:
     ) -> Path:
         if not listing_id or Path(listing_id).name != listing_id:
             raise ValueError(
-                f"Invalid listing ID: {listing_id!r}"
+                f"Mã phòng không hợp lệ: {listing_id!r}"
             )
 
         listing_dir = (
@@ -137,14 +130,14 @@ class ListingAssetManager:
 
             if not resolved_source.is_file():
                 raise FileNotFoundError(
-                    f"Image not found: {resolved_source}"
+                    f"Không tìm thấy ảnh: {resolved_source}"
                 )
 
             extension = resolved_source.suffix.lower()
 
             if extension not in SUPPORTED_IMAGE_EXTENSIONS:
                 raise ValueError(
-                    f"Unsupported image type: "
+                    f"Định dạng ảnh chưa được hỗ trợ: "
                     f"{resolved_source}"
                 )
 
@@ -196,7 +189,7 @@ class ListingAssetManager:
 
         if not image_name or Path(image_name).name != image_name:
             raise ValueError(
-                f"Invalid image name: {image_name!r}"
+                f"Tên ảnh không hợp lệ: {image_name!r}"
             )
 
         image_path = (images_dir / image_name).resolve()

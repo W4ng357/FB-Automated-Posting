@@ -129,7 +129,7 @@ class SystemTrayController(QObject):
         if QSystemTrayIcon.supportsMessages():
             self.tray_icon.showMessage(
                 "W4nwy Automation vẫn đang chạy",
-                "Nhấp vào biểu tượng W4 để mở lại cửa sổ.",
+                "Bấm vào biểu tượng W4 để mở lại cửa sổ.",
                 QSystemTrayIcon.MessageIcon.Information,
                 3500,
             )

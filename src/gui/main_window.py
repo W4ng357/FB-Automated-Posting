@@ -173,7 +173,7 @@ class MainWindow(QMainWindow):
             else f"{account_count} tài khoản đã lưu"
         )
         self.sidebar_footer.setText(
-            f"Dữ liệu lưu cục bộ\n{account_text}"
+            f"Dữ liệu lưu trên máy\n{account_text}"
         )
 
     def enable_system_tray(self, enabled: bool) -> None:
@@ -184,7 +184,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(
                 self,
                 "Đang đăng bài",
-                "Hãy yêu cầu dừng và chờ các tài khoản dừng an toàn "
+                "Hãy dừng tất cả tài khoản và chờ bài hiện tại đăng xong "
                 "trước khi thoát ứng dụng.",
             )
             return False
@@ -223,6 +223,6 @@ class MainWindow(QMainWindow):
         QMessageBox.warning(
             self,
             "Đang đăng bài",
-            "Hãy chờ các tài khoản hoàn tất trước khi đóng ứng dụng.",
+            "Hãy chờ các tài khoản đăng xong trước khi đóng ứng dụng.",
         )
         event.ignore()

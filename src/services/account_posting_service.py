@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
@@ -108,7 +109,7 @@ class AccountPostingService:
                     ),
                     listing_title=working_plan.tasks[0].listing_title,
                     next_listing_title=working_plan.tasks[0].listing_title,
-                    message="Đã chuẩn bị kế hoạch, đang mở trình duyệt",
+                    message="Kế hoạch đã sẵn sàng. Đang mở trình duyệt…",
                 )
 
                 with self.playwright_factory() as playwright:
@@ -144,8 +145,8 @@ class AccountPostingService:
                                 listing_title=None,
                                 next_listing_title=first_slot[0].listing_title,
                                 message=(
-                                    f"Bắt đầu vòng {round_number}: "
-                                    f"{len(active_slots)} lượt đăng"
+                                    f"Vòng {round_number}: "
+                                    f"{len(active_slots)} bài cần đăng"
                                 ),
                             )
 
@@ -179,8 +180,9 @@ class AccountPostingService:
                                         else None
                                     ),
                                     message=(
-                                        f"Đang đăng {target.attempted_count + 1}/"
-                                        f"{target.target_count}"
+                                        "Đang đăng lượt "
+                                        f"{target.attempted_count + 1}/"
+                                        f"{target.target_count} của nhóm"
                                     ),
                                 )
 
@@ -210,8 +212,8 @@ class AccountPostingService:
                                             else None
                                         ),
                                         message=(
-                                            "Không mở được ô soạn bài, "
-                                            "đang thử lại 1/1"
+                                            "Chưa mở được ô viết bài. "
+                                            "Đang thử lại lần cuối…"
                                         ),
                                     )
                                     result = self.posting_function(
@@ -220,12 +222,16 @@ class AccountPostingService:
                                         caption=caption,
                                         image_paths=images,
                                     )
+                                result = self._with_configured_group_name(
+                                    result,
+                                    current_group_name,
+                                )
                                 attempted += 1
                                 if result.success:
                                     target.mark_posted()
                                     completed += 1
                                     message = (
-                                        "Đăng thành công "
+                                        "Đã đăng xong "
                                         f"(lượt {target.attempted_count}/"
                                         f"{target.target_count})"
                                     )
@@ -233,10 +239,10 @@ class AccountPostingService:
                                     target.mark_attempt_failed()
                                     failed += 1
                                     message = (
-                                        "Đăng thất bại "
+                                        "Đăng không thành công "
                                         f"(lượt {target.attempted_count}/"
                                         f"{target.target_count}): "
-                                        f"{result.error or 'Không rõ lỗi'}"
+                                        f"{result.error or 'Không có thông tin lỗi'}"
                                     )
 
                                 entry = PostingResultEntry(
@@ -309,7 +315,7 @@ class AccountPostingService:
                                     self.wait_function(
                                         MIN_POST_INTERVAL,
                                         MAX_POST_INTERVAL,
-                                        "Đang chờ trước bài tiếp theo",
+                                        "Chờ trước bài tiếp theo",
                                         progress_callback=emit_post_wait,
                                         stop_requested=should_stop,
                                     )
@@ -353,14 +359,14 @@ class AccountPostingService:
                                     listing_title=None,
                                     next_listing_title=next_task.listing_title,
                                     message=(
-                                        f"Đã hoàn tất vòng {round_number}. "
-                                        "Đang chờ vòng tiếp theo"
+                                        f"Đã xong vòng {round_number}. "
+                                        "Chờ trước khi bắt đầu vòng tiếp theo."
                                     ),
                                 )
                                 self.wait_function(
                                     MIN_ROUND_INTERVAL,
                                     MAX_ROUND_INTERVAL,
-                                    "Đang chờ trước vòng tiếp theo",
+                                    "Chờ trước vòng tiếp theo",
                                     progress_callback=emit_round_wait,
                                     stop_requested=should_stop,
                                 )
@@ -380,12 +386,12 @@ class AccountPostingService:
                     next_group_name=None,
                     listing_title=None,
                     message=(
-                        f"Đã dừng theo yêu cầu sau {attempted}/{total} lượt"
+                        f"Đã dừng theo yêu cầu: {attempted}/{total} lượt đã xử lý"
                         if stopped
                         else (
-                            f"Hoàn tất: {completed}/{total} lượt thành công"
+                            f"Đã hoàn tất: {completed}/{total} lượt đăng thành công"
                             + (
-                                f" · {total - attempted} lượt đã bỏ qua"
+                                f" · {total - attempted} lượt chưa thực hiện"
                                 if attempted < total
                                 else ""
                             )
@@ -400,7 +406,7 @@ class AccountPostingService:
                     current_group_name=None,
                     next_group_name=None,
                     listing_title=None,
-                    message=f"Đã dừng vì lỗi: {error}",
+                    message=f"Tiến trình đã dừng: {error}",
                     finished=True,
                 )
                 raise
@@ -421,6 +427,19 @@ class AccountPostingService:
             and "Locator.press_sequentially" in result.error
             and "Timeout" in result.error
         )
+
+    @staticmethod
+    def _with_configured_group_name(
+        result: PostResult,
+        configured_name: str,
+    ) -> PostResult:
+        fetched_name = (result.group_name or "").strip()
+        if fetched_name and fetched_name.casefold() not in {
+            "unknown",
+            "unknown group",
+        }:
+            return result
+        return replace(result, group_name=configured_name)
 
     @staticmethod
     def _has_active_targets(tasks: list[ListingPostingTask]) -> bool:

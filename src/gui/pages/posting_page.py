@@ -79,7 +79,7 @@ class PostingPage(QWidget):
         title = QLabel("Đăng bài")
         title.setObjectName("PageTitle")
         subtitle = QLabel(
-            "Chọn tài khoản, thiết lập kế hoạch và theo dõi từng lượt đăng."
+            "Chọn tài khoản, lên kế hoạch và theo dõi quá trình đăng bài."
         )
         subtitle.setProperty("muted", True)
         subtitle.setWordWrap(True)
@@ -98,6 +98,11 @@ class PostingPage(QWidget):
         self.start_all_button.setProperty("role", "primary")
         self.start_all_button.setProperty("density", "compact")
         self.start_all_button.clicked.connect(self.start_all)
+        self.stop_all_button = QPushButton("Dừng tất cả")
+        self.stop_all_button.setProperty("role", "danger")
+        self.stop_all_button.setProperty("density", "compact")
+        self.stop_all_button.setEnabled(False)
+        self.stop_all_button.clicked.connect(self.stop_all)
         header.addLayout(heading, 1)
         header.addWidget(manage_button, 0, Qt.AlignmentFlag.AlignTop)
         header.addWidget(
@@ -106,6 +111,7 @@ class PostingPage(QWidget):
             Qt.AlignmentFlag.AlignTop,
         )
         header.addWidget(refresh_button, 0, Qt.AlignmentFlag.AlignTop)
+        header.addWidget(self.stop_all_button, 0, Qt.AlignmentFlag.AlignTop)
         header.addWidget(self.start_all_button, 0, Qt.AlignmentFlag.AlignTop)
         root.addLayout(header)
 
@@ -136,7 +142,7 @@ class PostingPage(QWidget):
 
         self.empty_panel = EmptyState(
             "Chưa có tài khoản Facebook",
-            "Thêm tài khoản và đăng nhập ngay trong ứng dụng để bắt đầu.",
+            "Thêm tài khoản và đăng nhập để bắt đầu đăng bài.",
             "Thêm tài khoản",
         )
         self.empty_panel.action_requested.connect(self._manage_accounts)
@@ -254,13 +260,13 @@ class PostingPage(QWidget):
             self._select_account(next(iter(self.account_tabs)))
         if self.session_error:
             self.empty_panel.set_content(
-                "Không thể đọc phiên Facebook",
-                f"{self.session_error}\nKiểm tra dữ liệu tài khoản rồi thử lại.",
+                "Không thể đọc phiên đăng nhập",
+                f"{self.session_error}\nKiểm tra dữ liệu tài khoản, rồi thử lại.",
             )
         else:
             self.empty_panel.set_content(
                 "Chưa có tài khoản Facebook",
-                "Thêm tài khoản và đăng nhập ngay trong ứng dụng để bắt đầu.",
+                "Thêm tài khoản và đăng nhập để bắt đầu đăng bài.",
             )
         self._update_overview()
         self.accounts_changed.emit(len(self.account_tabs))
@@ -282,8 +288,8 @@ class PostingPage(QWidget):
         if not candidates:
             QMessageBox.information(
                 self,
-                "Không có tài khoản để bắt đầu",
-                "Hãy kiểm tra tài khoản đã đăng nhập và đã có kế hoạch đăng.",
+                "Chưa có tài khoản sẵn sàng",
+                "Tài khoản cần đăng nhập và có kế hoạch trước khi bắt đầu.",
             )
             self._update_overview()
             return 0
@@ -302,6 +308,15 @@ class PostingPage(QWidget):
             self._update_overview()
         return started
 
+    def stop_all(self, _checked: bool = False) -> int:
+        stopped = sum(
+            1
+            for tab in self.account_tabs.values()
+            if tab.is_running and tab.stop()
+        )
+        self._update_overview()
+        return stopped
+
     def _configure_account_plan(self, account_id: str) -> None:
         tab = self.account_tabs.get(account_id)
         if tab is None or tab.is_running:
@@ -312,8 +327,8 @@ class PostingPage(QWidget):
             tasks=tab.tasks,
             scope_title=f"Cấu hình riêng · {tab.account.display_name}",
             scope_description=(
-                "Kế hoạch này chỉ áp dụng cho tài khoản đang mở; các tài "
-                "khoản khác giữ nguyên."
+                "Kế hoạch này chỉ áp dụng cho tài khoản đang chọn. "
+                "Các tài khoản khác không thay đổi."
             ),
             parent=self,
         )
@@ -328,15 +343,15 @@ class PostingPage(QWidget):
             QMessageBox.information(
                 self,
                 "Chưa có tài khoản",
-                "Hãy thêm ít nhất một tài khoản trước khi cấu hình chung.",
+                "Thêm ít nhất một tài khoản trước khi cấu hình chung.",
             )
             return
         if any(tab.is_running for tab in tabs):
             QMessageBox.information(
                 self,
                 "Tài khoản đang chạy",
-                "Hãy chờ hoặc dừng an toàn toàn bộ tài khoản trước khi cấu "
-                "hình một kế hoạch chung.",
+                "Chờ các tài khoản chạy xong hoặc dừng tất cả trước khi "
+                "thay đổi kế hoạch chung.",
             )
             return
         current = self.workspace_stack.currentWidget()
@@ -349,8 +364,8 @@ class PostingPage(QWidget):
             tasks=template_tab.tasks,
             scope_title="Cấu hình tất cả tài khoản",
             scope_description=(
-                f"Dùng kế hoạch của {template_tab.account.display_name} làm "
-                f"mẫu và thay thế kế hoạch hiện tại của {len(tabs)} tài khoản."
+                f"Lấy kế hoạch của {template_tab.account.display_name} làm mẫu "
+                f"cho cả {len(tabs)} tài khoản. Kế hoạch cũ sẽ được thay thế."
             ),
             parent=self,
         )
@@ -395,7 +410,7 @@ class PostingPage(QWidget):
         self.accounts_summary.setText(f"{account_count} tài khoản")
         self.rail_count.setText(str(account_count))
         self.queue_summary.setText(
-            f"{task_count} phòng · {attempt_count} lượt dự kiến"
+            f"{task_count} phòng · {attempt_count} lượt đăng"
         )
         run_parts = [f"{running_count} đang chạy"]
         if ready_count:
@@ -414,9 +429,29 @@ class PostingPage(QWidget):
             can_start_any and not self._starting_all
         )
         self.start_all_button.setToolTip(
-            "Bắt đầu các tài khoản đã có kế hoạch và chưa chạy."
+            "Bắt đầu tất cả tài khoản đã đăng nhập và có kế hoạch."
             if can_start_any
-            else "Không còn tài khoản đủ điều kiện để bắt đầu."
+            else "Chưa có tài khoản nào sẵn sàng để bắt đầu."
+        )
+        can_stop_any = any(
+            tab.is_running and not tab.stop_pending
+            for tab in self.account_tabs.values()
+        )
+        waiting_for_all_to_stop = running_count > 0 and not can_stop_any
+        self.stop_all_button.setEnabled(can_stop_any)
+        self.stop_all_button.setText(
+            "Đang chờ dừng…"
+            if waiting_for_all_to_stop
+            else "Dừng tất cả"
+        )
+        self.stop_all_button.setToolTip(
+            "Đăng xong bài hiện tại, rồi dừng tất cả tài khoản."
+            if can_stop_any
+            else (
+                "Đang chờ các tài khoản đăng xong bài hiện tại."
+                if waiting_for_all_to_stop
+                else "Không có tài khoản nào đang chạy."
+            )
         )
         has_listings = any(
             tab.has_available_listings
@@ -429,12 +464,12 @@ class PostingPage(QWidget):
         )
         self.configure_all_button.setEnabled(can_configure_all)
         self.configure_all_button.setToolTip(
-            "Dùng kế hoạch của tab đang mở cho toàn bộ tài khoản."
+            "Dùng kế hoạch của tài khoản đang chọn cho tất cả tài khoản."
             if can_configure_all
             else (
-                "Hãy chờ tất cả tài khoản dừng trước khi cấu hình chung."
+                "Chờ tất cả tài khoản dừng trước khi cấu hình chung."
                 if self.is_running
-                else "Hãy thêm tài khoản và ít nhất một phòng đang dùng."
+                else "Cần ít nhất một tài khoản và một phòng đang bật."
             )
         )
 
@@ -463,5 +498,5 @@ class PostingPage(QWidget):
 
     @staticmethod
     def _account_tooltip(account, status: str) -> str:
-        identity = account.facebook_name.strip() or "Chưa đồng bộ tên Facebook"
-        return f"{identity}\n{status}\nPhiên cục bộ: {account.id}"
+        identity = account.facebook_name.strip() or "Chưa lấy tên Facebook"
+        return f"{identity}\n{status}\nPhiên đăng nhập: {account.id}"

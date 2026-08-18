@@ -63,7 +63,7 @@ class AccountCard(QFrame):
         identity = QLabel(account.identity_detail)
         identity.setProperty("muted", True)
         session = QLabel(
-            f"Phiên {account.id}"
+            f"Phiên đăng nhập: {account.id}"
             + (
                 f" · cập nhật {account.updated_at[:10]}"
                 if account.updated_at
@@ -79,9 +79,9 @@ class AccountCard(QFrame):
         side = QVBoxLayout()
         side.setSpacing(9)
         if account.is_synced and session_available:
-            badge = StatusBadge("Đã đồng bộ", "success")
+            badge = StatusBadge("Đã cập nhật", "success")
         elif session_available:
-            badge = StatusBadge("Chưa đồng bộ", "warning")
+            badge = StatusBadge("Chưa lấy thông tin", "warning")
         else:
             badge = StatusBadge("Chưa đăng nhập", "warning")
         side.addWidget(badge, 0, Qt.AlignmentFlag.AlignRight)
@@ -90,7 +90,7 @@ class AccountCard(QFrame):
         actions = QHBoxLayout()
         actions.setSpacing(8)
         sync_button = QPushButton(
-            "Đồng bộ lại" if session_available else "Đăng nhập"
+            "Cập nhật" if session_available else "Đăng nhập"
         )
         sync_button.setProperty("density", "compact")
         sync_button.clicked.connect(
@@ -102,7 +102,7 @@ class AccountCard(QFrame):
             lambda: self.edit_requested.emit(account.id)
         )
         menu = QMenu(self)
-        delete_action = menu.addAction("Xóa tài khoản và session")
+        delete_action = menu.addAction("Xóa tài khoản")
         delete_action.triggered.connect(
             lambda _checked=False: self.delete_requested.emit(account.id)
         )
@@ -138,8 +138,8 @@ class AccountEditDialog(QDialog):
         title = QLabel("Chỉnh sửa tài khoản")
         title.setObjectName("PageTitle")
         subtitle = QLabel(
-            "Nhãn chỉ thay đổi cách hiển thị trong ứng dụng; "
-            "session Chromium vẫn giữ nguyên."
+            "Tên hiển thị chỉ dùng trong ứng dụng. "
+            "Phiên đăng nhập không thay đổi."
         )
         subtitle.setProperty("muted", True)
         subtitle.setWordWrap(True)
@@ -154,11 +154,11 @@ class AccountEditDialog(QDialog):
         facebook_label = QLabel("Tên Facebook")
         self.facebook_name = QLineEdit(account.facebook_name)
         self.facebook_name.setReadOnly(True)
-        self.facebook_name.setPlaceholderText("Chưa đồng bộ hồ sơ Facebook")
-        alias_label = QLabel("Nhãn trong ứng dụng")
+        self.facebook_name.setPlaceholderText("Chưa lấy tên Facebook")
+        alias_label = QLabel("Tên hiển thị")
         self.alias_input = QLineEdit(account.alias)
         self.alias_input.setPlaceholderText(
-            "Để trống để dùng tên Facebook"
+            "Để trống nếu muốn dùng tên Facebook"
         )
         panel_layout.addWidget(facebook_label)
         panel_layout.addWidget(self.facebook_name)
@@ -222,7 +222,7 @@ class AccountManagerDialog(QDialog):
         title = QLabel("Tài khoản Facebook")
         title.setObjectName("PageTitle")
         subtitle = QLabel(
-            "Mỗi tài khoản dùng một Chromium profile riêng được lưu cục bộ."
+            "Mỗi tài khoản có một phiên đăng nhập riêng và được lưu trên máy này."
         )
         subtitle.setProperty("muted", True)
         subtitle.setWordWrap(True)
@@ -248,12 +248,27 @@ class AccountManagerDialog(QDialog):
         self.scroll.setWidget(self.container)
         root.addWidget(self.scroll, 1)
 
+        footer_layout = QHBoxLayout()
+        open_data_btn = QPushButton("Mở thư mục dữ liệu")
+        open_data_btn.setProperty("role", "ghost")
+        open_data_btn.setProperty("density", "compact")
+        open_data_btn.clicked.connect(self._open_data_folder)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         close = buttons.button(QDialogButtonBox.StandardButton.Close)
         close.setText("Đóng")
         buttons.rejected.connect(self.reject)
-        root.addWidget(buttons)
+        footer_layout.addWidget(open_data_btn)
+        footer_layout.addStretch()
+        footer_layout.addWidget(buttons)
+        root.addLayout(footer_layout)
         self._render_accounts()
+
+    def _open_data_folder(self) -> None:
+        from app_paths import APP_DATA_DIR
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(APP_DATA_DIR)))
 
     def _render_accounts(self) -> None:
         while self.accounts_layout.count():
@@ -267,7 +282,7 @@ class AccountManagerDialog(QDialog):
         except Exception as error:
             empty = EmptyState(
                 "Không thể tải tài khoản",
-                f"{error}\nKiểm tra tệp dữ liệu rồi mở lại.",
+                f"{error}\nKiểm tra tệp dữ liệu, rồi mở lại cửa sổ này.",
             )
             self.accounts_layout.addWidget(empty)
             self.accounts_layout.addStretch()
@@ -275,7 +290,7 @@ class AccountManagerDialog(QDialog):
         if not self.accounts:
             empty = EmptyState(
                 "Chưa có tài khoản Facebook",
-                "Thêm tài khoản và đăng nhập để bắt đầu tạo hàng chờ đăng.",
+                "Thêm tài khoản và đăng nhập để bắt đầu đăng bài.",
                 "Thêm tài khoản",
             )
             empty.action_requested.connect(self._add_account)
@@ -346,8 +361,8 @@ class AccountManagerDialog(QDialog):
         answer = QMessageBox.warning(
             self,
             "Xóa tài khoản Facebook",
-            f"Xóa {account.display_name} khỏi ứng dụng?\n\n"
-            "Thao tác này xóa cả Chromium session và avatar đã lưu trên máy.",
+            f"Bạn có chắc muốn xóa {account.display_name}?\n\n"
+            "Phiên đăng nhập và ảnh đại diện lưu trên máy cũng sẽ bị xóa.",
             QMessageBox.StandardButton.Yes
             | QMessageBox.StandardButton.Cancel,
             QMessageBox.StandardButton.Cancel,
@@ -360,7 +375,7 @@ class AccountManagerDialog(QDialog):
             QMessageBox.critical(
                 self,
                 "Không thể xóa tài khoản",
-                f"{error}\nHãy dừng tiến trình đang dùng tài khoản rồi thử lại.",
+                f"{error}\nHãy dừng tài khoản này, rồi thử lại.",
             )
             return
         self._render_accounts()

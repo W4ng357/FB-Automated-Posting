@@ -76,6 +76,8 @@ class AccountPostingTab(QWidget):
         self.last_progress: PostingProgress | None = None
         self.result_entries: list[PostingResultEntry] = []
         self._run_result_start_index = 0
+        self._run_number = 0
+        self._run_log_closed = True
         self._results_dialog: PostingResultsDialog | None = None
         self._available_listing_count = 0
 
@@ -100,6 +102,10 @@ class AccountPostingTab(QWidget):
     @property
     def total_attempts(self) -> int:
         return sum(task.total_attempts for task in self.tasks)
+
+    @property
+    def stop_pending(self) -> bool:
+        return self._stop_pending
 
     @property
     def has_available_listings(self) -> bool:
@@ -145,7 +151,7 @@ class AccountPostingTab(QWidget):
 
         actions = QHBoxLayout()
         actions.setSpacing(8)
-        self.plan_button = QPushButton("Cấu hình riêng")
+        self.plan_button = QPushButton("Chỉnh kế hoạch")
         self.plan_button.setProperty("density", "compact")
         self.plan_button.clicked.connect(self._configure_plan)
         self.results_button = QPushButton("Kết quả")
@@ -157,7 +163,7 @@ class AccountPostingTab(QWidget):
         self.stop_button.setProperty("density", "compact")
         self.stop_button.setEnabled(False)
         self.stop_button.setToolTip(
-            "Dừng tại khoảng chờ an toàn sau khi bài hiện tại hoàn tất."
+            "Đăng xong bài hiện tại, rồi dừng ở khoảng nghỉ tiếp theo."
         )
         self.stop_button.clicked.connect(self.stop)
         self.start_button = QPushButton("Bắt đầu")
@@ -190,10 +196,10 @@ class AccountPostingTab(QWidget):
         self.progress_bar.setRange(0, 1)
         self.progress_bar.setValue(0)
         self.progress_bar.setTextVisible(False)
-        self.current_label = QLabel("Đang xử lý: Chưa bắt đầu")
+        self.current_label = QLabel("Hiện tại: Chưa bắt đầu")
         self.current_label.setProperty("progressDetail", True)
         self.current_label.setWordWrap(True)
-        self.next_label = QLabel("Tiếp theo: Chưa có lượt tiếp theo")
+        self.next_label = QLabel("Tiếp theo: Chưa có")
         self.next_label.setProperty("meta", True)
         self.next_label.setWordWrap(True)
         layout.addLayout(row)
@@ -235,7 +241,7 @@ class AccountPostingTab(QWidget):
         heading = QHBoxLayout()
         title = QLabel("Nhật ký hoạt động")
         title.setObjectName("SectionTitle")
-        helper = QLabel("Cập nhật trực tiếp theo từng tài khoản")
+        helper = QLabel("Cập nhật theo thời gian thực · chia theo từng lần chạy")
         helper.setProperty("meta", True)
         heading.addWidget(title)
         heading.addStretch()
@@ -244,7 +250,7 @@ class AccountPostingTab(QWidget):
         self.log_output.setReadOnly(True)
         self.log_output.setProperty("terminal", True)
         self.log_output.setPlaceholderText(
-            "Nhật ký của tài khoản sẽ xuất hiện tại đây."
+            "Nhật ký đăng bài của tài khoản này sẽ xuất hiện tại đây."
         )
         self.log_output.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
@@ -285,10 +291,13 @@ class AccountPostingTab(QWidget):
         if self.account.alias.strip() and self.account.facebook_name.strip():
             identity = f"Facebook: {self.account.facebook_name.strip()}"
         elif self.account.is_synced:
-            identity = f"Phiên {self.account.id}"
+            identity = f"Phiên đăng nhập: {self.account.id}"
         else:
-            identity = f"Phiên {self.account.id} · chưa đồng bộ hồ sơ"
-        return f"{identity} · một kế hoạch chạy tại một thời điểm"
+            identity = (
+                f"Phiên đăng nhập: {self.account.id} · "
+                "chưa lấy thông tin Facebook"
+            )
+        return f"{identity} · mỗi tài khoản chạy một kế hoạch tại một thời điểm"
 
     def refresh_available_data(self) -> None:
         try:
@@ -308,8 +317,8 @@ class AccountPostingTab(QWidget):
         if not self._available_listing_count:
             QMessageBox.information(
                 self,
-                "Chưa có phòng khả dụng",
-                "Hãy tạo, thêm ảnh và bật ít nhất một phòng trước.",
+                "Chưa có phòng sẵn sàng",
+                "Hãy tạo phòng, thêm ảnh và bật phòng trước.",
             )
             return
         self.plan_requested.emit(self.account_name)
@@ -342,7 +351,7 @@ class AccountPostingTab(QWidget):
         )
         if not self.tasks:
             self.plan_detail_label.setText(
-                "Chưa có phòng. Mở Cấu hình riêng để tạo kế hoạch."
+                "Chưa có phòng trong kế hoạch. Bấm “Chỉnh kế hoạch” để thêm."
             )
         else:
             lines = [
@@ -351,7 +360,7 @@ class AccountPostingTab(QWidget):
                 for task in self.tasks[:3]
             ]
             if len(self.tasks) > 3:
-                lines.append(f"Và {len(self.tasks) - 3} phòng khác")
+                lines.append(f"Còn {len(self.tasks) - 3} phòng khác")
             self.plan_detail_label.setText("\n".join(lines))
         self._update_action_availability()
 
@@ -362,14 +371,14 @@ class AccountPostingTab(QWidget):
             QMessageBox.warning(
                 self,
                 "Tài khoản chưa đăng nhập",
-                "Hãy đăng nhập tài khoản Facebook này trước khi bắt đầu.",
+                "Đăng nhập tài khoản Facebook này trước khi bắt đầu.",
             )
             return False
         if not self.tasks:
             QMessageBox.warning(
                 self,
-                "Kế hoạch đang trống",
-                f"Hãy chọn ít nhất một phòng cho {self.account.display_name}.",
+                "Chưa có kế hoạch đăng",
+                f"Chọn ít nhất một phòng cho {self.account.display_name}.",
             )
             return False
         try:
@@ -398,7 +407,7 @@ class AccountPostingTab(QWidget):
             QMessageBox.warning(self, "Chưa thể bắt đầu", str(error))
             return False
         worker.started.connect(
-            lambda: self._append_log("Đã khởi động bộ máy đăng bài.")
+            lambda: self._append_log("Đã bắt đầu tiến trình đăng bài.")
         )
         worker.progress.connect(self._on_progress)
         worker.result.connect(self._on_result)
@@ -412,10 +421,7 @@ class AccountPostingTab(QWidget):
         self._stop_pending = False
         self._run_total_attempts = plan.total_attempts
         self.last_progress = None
-        self._append_log(
-            f"Bắt đầu kế hoạch gồm {len(self.tasks)} phòng "
-            f"và {plan.total_attempts} lượt."
-        )
+        self._append_run_header(plan)
         self._set_running(True)
         worker.start()
         return True
@@ -431,7 +437,7 @@ class AccountPostingTab(QWidget):
         self.stop_button.setText("Đang chờ dừng…")
         self.status_label.set_state("Đang chờ dừng", "warning")
         self._append_log(
-            "Đã nhận yêu cầu dừng. Bài đang đăng sẽ hoàn tất trước khi dừng."
+            "Đã nhận yêu cầu dừng. Ứng dụng sẽ đăng xong bài hiện tại rồi dừng."
         )
         self.status_changed.emit(self.account_name, "Đang chờ dừng")
         return True
@@ -451,11 +457,11 @@ class AccountPostingTab(QWidget):
             details += f" · còn {progress.remaining}"
         self.progress_numbers.setText(details)
         self.current_label.setText(
-            "Đang xử lý: "
+            "Hiện tại: "
             f"{progress.current_listing_title or 'Chưa có phòng'} · "
             f"{progress.current_group_name or 'Chưa có nhóm'}"
         )
-        next_text = progress.next_listing_title or "Không còn lượt chờ"
+        next_text = progress.next_listing_title or "Không còn bài nào"
         if progress.next_group_name:
             next_text += f" · {progress.next_group_name}"
         self.next_label.setText(f"Tiếp theo: {next_text}")
@@ -491,22 +497,32 @@ class AccountPostingTab(QWidget):
         )
         if was_stopped:
             self._append_log(
-                f"Đã dừng an toàn: {len(entries)}/{run_total} "
-                f"lượt đã xử lý, {successful} lượt thành công."
+                f"Đã dừng: {len(entries)}/{run_total} lượt đã xử lý · "
+                f"{successful} lượt thành công."
             )
         else:
             self._append_log(
-                f"Kết thúc: {successful}/{run_total} lượt thành công."
+                f"Đã hoàn tất: {successful}/{run_total} lượt thành công."
             )
+        self._append_run_footer(
+            "ĐÃ DỪNG" if was_stopped else "HOÀN TẤT",
+            entries,
+            run_total,
+        )
 
     def _on_worker_error(self, message: str) -> None:
         self._completion_status = "Lỗi"
         log_message = f"Đã dừng vì lỗi: {message}"
         if self.last_progress is None or self.last_progress.message != log_message:
             self._append_log(log_message)
+        self._append_run_footer(
+            "LỖI",
+            self.result_entries[self._run_result_start_index:],
+            self._run_total_attempts,
+        )
         QMessageBox.critical(
             self,
-            f"Tài khoản {self.account_name} gặp lỗi",
+            f"{self.account.display_name} đã dừng vì có lỗi",
             message,
         )
 
@@ -562,11 +578,11 @@ class AccountPostingTab(QWidget):
         )
         if not self.session_available:
             self.start_button.setToolTip(
-                "Hãy đăng nhập tài khoản trước khi bắt đầu đăng bài."
+                "Đăng nhập tài khoản trước khi bắt đầu đăng bài."
             )
         elif not self.tasks:
             self.start_button.setToolTip(
-                "Hãy chọn phòng và nhóm trước khi bắt đầu."
+                "Chọn phòng và nhóm trước khi bắt đầu."
             )
         else:
             self.start_button.setToolTip("")
@@ -595,6 +611,67 @@ class AccountPostingTab(QWidget):
     def _append_log(self, message: str) -> None:
         timestamp = QTime.currentTime().toString("HH:mm:ss")
         self.log_output.appendPlainText(f"[{timestamp}] {message}")
+
+    def _append_run_header(self, plan: AccountPostingPlan) -> None:
+        self._run_number += 1
+        self._run_log_closed = False
+        if self.log_output.toPlainText().strip():
+            self.log_output.appendPlainText("")
+        self._append_run_separator(f"LẦN CHẠY {self._run_number:02d}")
+        self._append_log(
+            f"Tài khoản: {self.account.display_name} · "
+            f"phiên đăng nhập {self.account_name}"
+        )
+        group_count = sum(len(task.group_targets) for task in plan.tasks)
+        self._append_log(
+            f"Kế hoạch: {len(plan.tasks)} phòng · "
+            f"{group_count} nhóm · {plan.total_attempts} lượt"
+        )
+        for index, task in enumerate(plan.tasks, start=1):
+            self._append_log(
+                f"Phòng {index}/{len(plan.tasks)}: {task.listing_title} · "
+                f"{len(task.group_targets)} nhóm · "
+                f"{task.total_attempts} lượt"
+            )
+            groups = "; ".join(
+                f"{task.group_name_for(target.url)} ×{target.target_count}"
+                for target in task.group_targets
+            )
+            self._append_log(f"Nhóm: {groups}")
+        self._append_log("Bắt đầu đăng theo kế hoạch.")
+
+    def _append_run_footer(
+        self,
+        status: str,
+        entries: list[PostingResultEntry],
+        run_total: int,
+    ) -> None:
+        if self._run_log_closed:
+            return
+        linked_success = sum(
+            1
+            for entry in entries
+            if entry.result.success and entry.result.post_url
+        )
+        interrupted = sum(
+            1
+            for entry in entries
+            if entry.result.success and not entry.result.post_url
+        )
+        failed = sum(1 for entry in entries if not entry.result.success)
+        remaining = max(run_total - len(entries), 0)
+        self._append_log(
+            f"Kết quả: {len(entries)}/{run_total} lượt đã xử lý · "
+            f"{linked_success} thành công · {interrupted} thiếu liên kết · "
+            f"{failed} thất bại · {remaining} chưa đăng"
+        )
+        self._append_run_separator(
+            f"KẾT THÚC {self._run_number:02d} · {status}"
+        )
+        self._run_log_closed = True
+
+    def _append_run_separator(self, label: str) -> None:
+        self.log_output.appendPlainText(f"============ {label} ============")
 
     def _render_results(self, entries: list[PostingResultEntry]) -> None:
         self.result_entries = list(entries)
