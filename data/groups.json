@@ -1,0 +1,23 @@
+[
+  {
+    "id": "G001",
+    "url": "https://www.facebook.com/groups/390668973049082",
+    "name": "Phòng trọ Phạm Văn Đồng - Hoàng Quốc Việt - Trần Cung - Cổ Nhuế - Xuân Đỉnh",
+    "image_path": null,
+    "enabled": true
+  },
+  {
+    "id": "G002",
+    "url": "https://www.facebook.com/groups/1029792403373207",
+    "name": "Giao lưu hàng hóa # 1",
+    "image_path": null,
+    "enabled": true
+  },
+  {
+    "id": "G003",
+    "url": "https://www.facebook.com/groups/1364464371953906",
+    "name": "Thuê phòng giá rẻ",
+    "image_path": null,
+    "enabled": true
+  }
+]

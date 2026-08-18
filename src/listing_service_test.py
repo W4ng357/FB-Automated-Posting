@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import post
 from models.listing import Listing
-from services.caption_generator import generate_caption
+from services.caption_generator import format_price, generate_caption
 from services.listing_asset_manager import ListingAssetManager
 from services.listing_repository import ListingRepository
 from services.listing_service import ListingService
@@ -87,7 +87,7 @@ class ListingServiceTest(unittest.TestCase):
         )
 
         self.assertIn(
-            "💰 Giá: 3.700.000đ/tháng",
+            "💰 Giá: 3,7tr/tháng",
             caption,
         )
         self.assertIn("📐 Diện tích: 27m²", caption)
@@ -111,10 +111,16 @@ class ListingServiceTest(unittest.TestCase):
             caption,
             (
                 "Phòng trọ\n\n"
-                "📌 Khu vực: Cầu Giấy\n"
-                "💰 Giá: 2.500.000đ/tháng"
+                "📍 Địa chỉ: Cầu Giấy\n"
+                "💰 Giá: 2,5tr/tháng"
             ),
         )
+
+    def test_price_uses_compact_million_format(self) -> None:
+        self.assertEqual(format_price(3_500_000), "3,5tr")
+        self.assertEqual(format_price(4_000_000), "4tr")
+        self.assertEqual(format_price(7_000_000), "7tr")
+        self.assertEqual(format_price(3_050_000), "3,05tr")
 
     def test_image_number_uses_highest_existing_stem(self) -> None:
         sources = [

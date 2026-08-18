@@ -99,7 +99,7 @@ def post_to_groups(
     with sync_playwright() as p:
         context = p.chromium.launch_persistent_context(
             user_data_dir=str(session_path),
-            headless=False,
+            headless=True,
         )
         context.grant_permissions(
             ["clipboard-read", "clipboard-write"],

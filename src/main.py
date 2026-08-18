@@ -6,6 +6,7 @@ from session_manager import (
     get_session_path,
     list_sessions,
 )
+from services.account_session_registry import AccountSessionRegistry
 
 
 def open_account(account_name: str):
@@ -16,24 +17,25 @@ def open_account(account_name: str):
         exist_ok=True
     )
 
-    with sync_playwright() as p:
-        context = p.chromium.launch_persistent_context(
-            user_data_dir=str(session_dir),
-            headless=False,
-        )
+    with AccountSessionRegistry.exclusive(account_name, session_dir):
+        with sync_playwright() as p:
+            context = p.chromium.launch_persistent_context(
+                user_data_dir=str(session_dir),
+                headless=False,
+            )
 
-        if context.pages:
-            page = context.pages[0]
-        else:
-            page = context.new_page()
+            if context.pages:
+                page = context.pages[0]
+            else:
+                page = context.new_page()
 
-        page.goto("https://www.facebook.com")
+            page.goto("https://www.facebook.com")
 
-        print(f"Opened account session: {account_name}")
-        page.pause()
-        input("Press Enter to close...")
+            print(f"Opened account session: {account_name}")
+            page.pause()
+            input("Press Enter to close...")
 
-        context.close()
+            context.close()
 
 
 def show_accounts():

@@ -2,7 +2,12 @@ from models.listing import Listing
 
 
 def format_price(price: int) -> str:
-    return f"{price:,}".replace(",", ".")
+    millions, remainder = divmod(price, 1_000_000)
+    if remainder == 0:
+        return f"{millions}tr"
+
+    decimal_part = f"{remainder:06d}".rstrip("0")
+    return f"{millions},{decimal_part}tr"
 
 
 def format_area(area: float) -> str:
@@ -12,16 +17,13 @@ def format_area(area: float) -> str:
 def generate_caption(listing: Listing) -> str:
     details: list[str] = []
 
-    if listing.address.strip():
+    address = listing.address.strip() or listing.location.strip()
+    if address:
         details.append(
-            f"📍 Địa chỉ: {listing.address.strip()}"
+            f"📍 Địa chỉ: {address}"
         )
-
     details.append(
-        f"📌 Khu vực: {listing.location.strip()}"
-    )
-    details.append(
-        f"💰 Giá: {format_price(listing.price)}đ/tháng"
+        f"💰 Giá: {format_price(listing.price)}/tháng"
     )
 
     if listing.area is not None:

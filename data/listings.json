@@ -2,12 +2,34 @@
   {
     "id": "R003",
     "title": "Phòng trọ Thanh Xuân",
-    "location": "Thanh Xuân",
+    "location": "Nguyễn Trãi, Thanh Xuân, Hà Nội",
     "price": 3500000,
     "address": "Nguyễn Trãi, Thanh Xuân, Hà Nội",
-    "area": 25,
+    "area": null,
     "description": "Phòng sạch đẹp, đầy đủ nội thất",
     "contact": "0123456789",
+    "enabled": true
+  },
+  {
+    "id": "R005",
+    "title": "Phong khep kin Cau Giay",
+    "location": "KTX Ngoai Ngu - DHQGHN",
+    "price": 4000000,
+    "address": "KTX Ngoai Ngu - DHQGHN",
+    "area": null,
+    "description": "Sach se, thoang mat, kin dao",
+    "contact": "03636366767",
+    "enabled": true
+  },
+  {
+    "id": "R006",
+    "title": "Phong tro Ha Dong",
+    "location": "53 Trieu Khuc",
+    "price": 3500000,
+    "address": "53 Trieu Khuc",
+    "area": null,
+    "description": "Sach dep, thoang mat, moi xay",
+    "contact": "1241512634",
     "enabled": true
   }
 ]

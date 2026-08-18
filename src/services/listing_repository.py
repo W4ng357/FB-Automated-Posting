@@ -1,5 +1,6 @@
 import json
 import re
+import threading
 
 from dataclasses import asdict
 from pathlib import Path
@@ -16,6 +17,9 @@ DEFAULT_LISTINGS_FILE = (
 )
 
 
+_LISTINGS_LOCK = threading.RLock()
+
+
 class ListingRepository:
     def __init__(
         self,
@@ -24,6 +28,10 @@ class ListingRepository:
         self.file_path = file_path
 
     def get_all(self) -> list[Listing]:
+        with _LISTINGS_LOCK:
+            return self._get_all_unlocked()
+
+    def _get_all_unlocked(self) -> list[Listing]:
         if not self.file_path.is_file():
             return []
 
@@ -83,89 +91,92 @@ class ListingRepository:
         enabled: bool = True,
         reserved_ids: set[str] | None = None,
     ) -> Listing:
-        listings = self.get_all()
+        with _LISTINGS_LOCK:
+            listings = self._get_all_unlocked()
 
-        listing = Listing(
-            id=self._generate_next_id(
-                listings,
-                reserved_ids or set(),
-            ),
-            title=title,
-            location=location,
-            price=price,
-            address=address,
-            area=area,
-            description=description,
-            contact=contact,
-            enabled=enabled,
-        )
+            listing = Listing(
+                id=self._generate_next_id(
+                    listings,
+                    reserved_ids or set(),
+                ),
+                title=title,
+                location=location,
+                price=price,
+                address=address,
+                area=area,
+                description=description,
+                contact=contact,
+                enabled=enabled,
+            )
 
-        listings.append(listing)
+            listings.append(listing)
 
-        self._save(listings)
+            self._save(listings)
 
-        return listing
+            return listing
 
     def update(
         self,
         listing_id: str,
         **changes,
     ) -> Listing:
-        listings = self.get_all()
+        with _LISTINGS_LOCK:
+            listings = self._get_all_unlocked()
 
-        for index, listing in enumerate(listings):
-            if listing.id != listing_id:
-                continue
+            for index, listing in enumerate(listings):
+                if listing.id != listing_id:
+                    continue
 
-            data = asdict(listing)
+                data = asdict(listing)
 
-            if "id" in changes:
-                raise ValueError(
-                    "Listing ID cannot be changed"
+                if "id" in changes:
+                    raise ValueError(
+                        "Listing ID cannot be changed"
+                    )
+
+                invalid_fields = (
+                    set(changes)
+                    - set(data)
                 )
 
-            invalid_fields = (
-                set(changes)
-                - set(data)
+                if invalid_fields:
+                    raise ValueError(
+                        f"Invalid fields: {invalid_fields}"
+                    )
+
+                data.update(changes)
+
+                updated_listing = Listing(**data)
+
+                listings[index] = updated_listing
+
+                self._save(listings)
+
+                return updated_listing
+
+            raise KeyError(
+                f"Listing not found: {listing_id}"
             )
-
-            if invalid_fields:
-                raise ValueError(
-                    f"Invalid fields: {invalid_fields}"
-                )
-
-            data.update(changes)
-
-            updated_listing = Listing(**data)
-
-            listings[index] = updated_listing
-
-            self._save(listings)
-
-            return updated_listing
-
-        raise KeyError(
-            f"Listing not found: {listing_id}"
-        )
 
     def delete(
         self,
         listing_id: str,
     ) -> bool:
-        listings = self.get_all()
+        with _LISTINGS_LOCK:
+            listings = self._get_all_unlocked()
 
-        updated_listings = [
-            listing
-            for listing in listings
-            if listing.id != listing_id
-        ]
+            updated_listings = [
+                listing
+                for listing in listings
+                if listing.id != listing_id
+            ]
 
-        if len(updated_listings) == len(listings):
-            return False
+            if len(updated_listings) == len(listings):
+                return False
 
-        self._save(updated_listings)
+            self._save(updated_listings)
 
-        return True
+            return True
 
     def _save(
         self,
