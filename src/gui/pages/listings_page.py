@@ -37,6 +37,7 @@ class ListingsPage(QWidget):
         root.setSpacing(18)
         header = QHBoxLayout()
         heading = QVBoxLayout()
+        heading.setSpacing(5)
         title = QLabel("Phòng")
         title.setObjectName("PageTitle")
         subtitle = QLabel(

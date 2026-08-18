@@ -1,4 +1,4 @@
-from PySide6.QtCore import QEasingCurve, QPropertyAnimation
+from PySide6.QtCore import QEvent, QEasingCurve, QPropertyAnimation, QTimer, Signal
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -24,6 +24,8 @@ from services.listing_service import ListingService
 
 
 class MainWindow(QMainWindow):
+    minimized_to_tray = Signal()
+
     def __init__(
         self,
         listing_service: ListingService | None = None,
@@ -35,7 +37,9 @@ class MainWindow(QMainWindow):
         self.group_service = group_service or GroupService()
         self.account_service = account_service
         self._page_animation: QPropertyAnimation | None = None
-        self.setWindowTitle("FB Poster · Quản lý đăng bài")
+        self._system_tray_enabled = False
+        self._application_exit_requested = False
+        self.setWindowTitle("W4nwy Automation · Quản lý đăng bài")
         self.setMinimumSize(1120, 720)
         self.resize(1480, 920)
 
@@ -81,12 +85,9 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(sidebar)
         layout.setContentsMargins(20, 28, 20, 24)
         layout.setSpacing(10)
-        brand = QLabel("FB POSTER")
+        brand = QLabel("W4nwy Automation")
         brand.setObjectName("BrandLabel")
-        subtitle = QLabel("Không gian đăng bài")
-        subtitle.setObjectName("MutedLabel")
         layout.addWidget(brand)
-        layout.addWidget(subtitle)
         layout.addSpacing(26)
 
         self.navigation_group = QButtonGroup(self)
@@ -101,6 +102,12 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.listings_button)
         layout.addWidget(self.groups_button)
         layout.addWidget(self.posting_button)
+        separator = QFrame()
+        separator.setObjectName("SidebarSeparator")
+        separator.setFrameShape(QFrame.Shape.HLine)
+        separator.setFixedHeight(1)
+        layout.addSpacing(14)
+        layout.addWidget(separator)
         layout.addStretch()
         self.sidebar_footer = QLabel()
         self.sidebar_footer.setObjectName("SidebarFooter")
@@ -169,7 +176,47 @@ class MainWindow(QMainWindow):
             f"Dữ liệu lưu cục bộ\n{account_text}"
         )
 
+    def enable_system_tray(self, enabled: bool) -> None:
+        self._system_tray_enabled = enabled
+
+    def request_application_exit(self) -> bool:
+        if self.posting_page.is_running:
+            QMessageBox.warning(
+                self,
+                "Đang đăng bài",
+                "Hãy yêu cầu dừng và chờ các tài khoản dừng an toàn "
+                "trước khi thoát ứng dụng.",
+            )
+            return False
+        self._application_exit_requested = True
+        if self.close():
+            return True
+        self._application_exit_requested = False
+        return False
+
+    def changeEvent(self, event) -> None:
+        super().changeEvent(event)
+        if (
+            self._system_tray_enabled
+            and event.type() == QEvent.Type.WindowStateChange
+            and self.isMinimized()
+        ):
+            QTimer.singleShot(0, self._hide_in_system_tray)
+
+    def _hide_in_system_tray(self) -> None:
+        if not self._system_tray_enabled:
+            return
+        self.hide()
+        self.minimized_to_tray.emit()
+
     def closeEvent(self, event: QCloseEvent) -> None:
+        if self._application_exit_requested:
+            event.accept()
+            return
+        if self._system_tray_enabled:
+            event.ignore()
+            self._hide_in_system_tray()
+            return
         if not self.posting_page.is_running:
             event.accept()
             return

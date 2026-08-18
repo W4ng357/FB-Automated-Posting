@@ -216,7 +216,7 @@ class RoundedThumbnail(QLabel):
             )
 
         painter.setClipping(False)
-        painter.setPen(QPen(QColor("#30303A"), 1))
+        painter.setPen(QPen(QColor("#2A2A34"), 1.2))
         painter.drawPath(shape)
 
 

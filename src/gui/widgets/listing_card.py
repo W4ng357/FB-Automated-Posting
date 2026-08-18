@@ -53,7 +53,7 @@ class ListingCard(QFrame):
         root_layout.addWidget(thumbnail)
 
         content_layout = QVBoxLayout()
-        content_layout.setSpacing(5)
+        content_layout.setSpacing(4)
 
         title_row = QHBoxLayout()
         title = QLabel(listing.title)

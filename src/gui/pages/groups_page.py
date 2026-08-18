@@ -35,6 +35,7 @@ class GroupsPage(QWidget):
         root.setSpacing(18)
         header = QHBoxLayout()
         heading = QVBoxLayout()
+        heading.setSpacing(5)
         title = QLabel("Nhóm")
         title.setObjectName("PageTitle")
         subtitle = QLabel(

@@ -1,5 +1,5 @@
 ---
-name: FB Poster Desktop
+name: W4nwy Automation Desktop
 description: Bảng điều phối Qt tiếng Việt cho phòng, nhóm, hàng chờ và kết quả đăng Facebook cục bộ.
 colors:
   surface-canvas: "#09090B"
@@ -97,9 +97,9 @@ colors:
 typography:
   brand:
     fontFamily: "Noto Sans"
-    fontSize: "20px"
+    fontSize: "18px"
     fontWeight: 800
-    letterSpacing: "1px"
+    letterSpacing: "0.3px"
   page-title:
     fontFamily: "Noto Sans"
     fontSize: "28px"
@@ -220,13 +220,13 @@ components:
     width: "150px"
 ---
 
-# Design System: FB Poster Desktop
+# Design System: W4nwy Automation Desktop
 
 ## Overview
 
 **Creative North Star: "Bàn điều phối yên tĩnh"**
 
-FB Poster is an operate-first desktop interface: quiet enough for repeated daily use, dense enough to keep listings, groups, account queues, progress, logs, and results visible without decorative distraction. Near-black layers establish hierarchy; a restrained purple marks the next primary action, current selection, keyboard focus, and active posting state.
+W4nwy Automation is an operate-first desktop interface: quiet enough for repeated daily use, dense enough to keep listings, groups, account queues, progress, logs, and results visible without decorative distraction. Near-black layers establish hierarchy; a restrained purple marks the next primary action, current selection, keyboard focus, and active posting state.
 
 The interface behaves like one local operations desk rather than a social-media dashboard. It uses text, counts, stable cards, and explicit state labels instead of promotional imagery or inferred activity. The visual system is shared across the resizable PySide6 / Qt Widgets application and remains intentionally dark-only in the current implementation.
 
@@ -295,7 +295,7 @@ The canonical values are the YAML tokens above, extracted directly from `src/gui
 
 ### Hierarchy
 
-- **Brand** (800, 20px, 1px tracking): the uppercase “FB POSTER” wordmark in the sidebar only.
+- **Brand** (800, 18px, 0.3px tracking): the “W4nwy Automation” wordmark in the sidebar, without a supporting tagline.
 - **Page title** (750, 28px): one title at the top of each page or dialog.
 - **Section title** (700, 17px): room details, queue, progress, image, preview, and account-section headings.
 - **Empty-state title** (700, 16px): the intentionally quieter title inside bounded empty-state panels.
@@ -386,9 +386,22 @@ Motion is functional and bounded. Top-level page changes fade from 84% to full o
 
 **The Factual Motion Rule.** Animation may smooth a real state change but must never create, delay, or imply backend work.
 
-### Application shell and navigation
+### Application shell, tray, and navigation
 
-The sidebar anchors the brand, subtitle, three top-level destinations, and a two-line local-data footer. Navigation labels are “Phòng”, “Nhóm”, and “Đăng bài”. Items are left-aligned, transparent by default, use `surface-nav-hover` on hover, and switch to the soft-purple surface/border/text trio when checked. The selected destination is persistent text-backed state, not an icon cue.
+The sidebar anchors the W4nwy Automation wordmark, three top-level
+destinations, and a two-line local-data footer. It has no supporting tagline.
+Navigation labels are “Phòng”, “Nhóm”, and “Đăng bài”. Items are left-aligned,
+transparent by default, use `surface-nav-hover` on hover, and switch to the
+soft-purple surface/border/text trio when checked. The selected destination is
+persistent text-backed state, not an icon cue.
+
+When the desktop exposes a system tray, a generated purple rounded-square W4
+mark becomes the application and tray icon. Closing or minimizing the main
+window hides it to the tray while posting continues. Tray activation restores
+and focuses the window; its menu offers “Mở W4nwy Automation”, “Ẩn cửa sổ”, and
+“Thoát”. Exit remains blocked while an account is posting and explains that a
+safe stop must finish first. Without system-tray support, the prior close
+behavior remains intact and the application never becomes invisibly stranded.
 
 ### Page header, overview, and search
 
@@ -501,10 +514,12 @@ active room. The right-column search filters by group name or URL without
 case or Vietnamese-diacritic sensitivity, while preserving hidden selections
 and attempt counts. During a search, “Chọn tất cả nhóm đang hiển thị” reflects
 and changes only the filtered rows; clearing the search restores the full-list
-summary. Group selection and counts are stored independently for every checked
-room. “Chọn tất cả nhóm” reflects zero, partial and full selection for the
-active room and toggles its complete group set. “Đặt số lượt tất cả nhóm đã
-chọn thành” applies one count only to checked groups of the active room.
+summary. Group rows display the decision-relevant name and attempt count only;
+the stored URL remains searchable without repeating it in every row. Group
+selection and counts are stored independently for every checked room. “Chọn
+tất cả nhóm” reflects zero, partial and full selection for the active room and
+toggles its complete group set. “Đặt số lượt tất cả nhóm đã chọn thành” applies
+one count only to checked groups of the active room.
 The entire room row is the configuration target; mouse click, Enter, or Space
 switches the right column to that room. Selecting any group also includes its
 active room; the room checkbox can still remove that room from the plan. No

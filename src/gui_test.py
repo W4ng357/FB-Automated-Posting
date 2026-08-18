@@ -37,6 +37,7 @@ if PYSIDE_AVAILABLE:
         AccountManagerDialog,
     )
     from gui.main_window import MainWindow
+    from gui.system_tray import SystemTrayController, create_w4_tray_icon
     from gui.pages.groups_page import GroupsPage
     from gui.widgets.account_posting_tab import AccountPostingTab
     from gui.widgets.design_components import RoundedThumbnail
@@ -202,6 +203,87 @@ class GuiTest(unittest.TestCase):
         )
         self.assertFalse(window.posting_page.start_all_button.isEnabled())
         window.close()
+
+    def test_main_window_uses_w4nwy_brand_without_tagline(self) -> None:
+        window = MainWindow(
+            self.listing_service,
+            self.group_service,
+            self.account_service,
+        )
+        sidebar_labels = [
+            label.text()
+            for label in window.findChildren(QLabel)
+        ]
+
+        self.assertEqual(
+            window.windowTitle(),
+            "W4nwy Automation · Quản lý đăng bài",
+        )
+        self.assertIn("W4nwy Automation", sidebar_labels)
+        self.assertNotIn("Không gian đăng bài", sidebar_labels)
+        window.close()
+
+    def test_main_window_hides_to_enabled_system_tray(self) -> None:
+        window = MainWindow(
+            self.listing_service,
+            self.group_service,
+            self.account_service,
+        )
+        hidden_events: list[bool] = []
+        window.minimized_to_tray.connect(
+            lambda: hidden_events.append(True)
+        )
+        window.enable_system_tray(True)
+        window.show()
+        self.application.processEvents()
+
+        self.assertFalse(window.close())
+        self.application.processEvents()
+        self.assertFalse(window.isVisible())
+        self.assertEqual(hidden_events, [True])
+
+        window.showNormal()
+        self.application.processEvents()
+        window.showMinimized()
+        self.application.processEvents()
+        self.application.processEvents()
+        self.assertFalse(window.isVisible())
+        self.assertEqual(hidden_events, [True, True])
+        self.assertTrue(window.request_application_exit())
+
+    def test_system_tray_uses_w4_icon_and_expected_actions(self) -> None:
+        window = MainWindow(
+            self.listing_service,
+            self.group_service,
+            self.account_service,
+        )
+        icon = create_w4_tray_icon()
+        controller = SystemTrayController(self.application, window)
+
+        self.assertFalse(icon.isNull())
+        self.assertFalse(icon.pixmap(QSize(32, 32)).isNull())
+        self.assertEqual(controller.tray_icon.toolTip(), "W4nwy Automation")
+        self.assertEqual(
+            [
+                action.text()
+                for action in controller.context_menu.actions()
+                if not action.isSeparator()
+            ],
+            ["Mở W4nwy Automation", "Ẩn cửa sổ", "Thoát"],
+        )
+        with patch(
+            "gui.system_tray.QSystemTrayIcon.isSystemTrayAvailable",
+            return_value=True,
+        ), patch("gui.system_tray.QSystemTrayIcon.show") as show_tray:
+            self.assertTrue(controller.start())
+        self.assertEqual(show_tray.call_count, 1)
+        self.assertTrue(window._system_tray_enabled)
+        self.assertFalse(self.application.quitOnLastWindowClosed())
+
+        self.assertTrue(window.request_application_exit())
+        controller.tray_icon.hide()
+        self.application.setQuitOnLastWindowClosed(True)
+        controller.deleteLater()
 
     def test_login_dialog_saves_received_profile(self) -> None:
         account = self.account_service.create_pending_account()
@@ -648,6 +730,11 @@ class GuiTest(unittest.TestCase):
             self.group_service,
         )
 
+        for row in dialog.group_rows:
+            self.assertNotIn(
+                row.group.url,
+                [label.text() for label in row.findChildren(QLabel)],
+            )
         dialog.group_search_input.setText("phong tro")
         visible_rows = dialog._visible_group_rows()
         self.assertEqual(

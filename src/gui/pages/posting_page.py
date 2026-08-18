@@ -113,7 +113,7 @@ class PostingPage(QWidget):
         self.overview.setProperty("overview", True)
         overview_layout = QHBoxLayout(self.overview)
         overview_layout.setContentsMargins(14, 9, 14, 9)
-        overview_layout.setSpacing(16)
+        overview_layout.setSpacing(12)
         self.accounts_summary = QLabel()
         self.queue_summary = QLabel()
         self.run_summary = StatusBadge("", "idle")

@@ -137,6 +137,11 @@ class AccountPostingTab(QWidget):
         identity_row.addLayout(heading, 1)
         identity_row.addWidget(self.status_label, 0, Qt.AlignmentFlag.AlignTop)
         layout.addLayout(identity_row)
+        divider = QFrame()
+        divider.setObjectName("HeaderActionsDivider")
+        divider.setFrameShape(QFrame.Shape.HLine)
+        divider.setFixedHeight(1)
+        layout.addWidget(divider)
 
         actions = QHBoxLayout()
         actions.setSpacing(8)

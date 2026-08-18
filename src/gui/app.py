@@ -21,7 +21,7 @@ def _enable_native_crash_log():
     except OSError:
         faulthandler.enable(all_threads=True)
         return None
-    crash_log.write("\n=== Khởi động FB Poster ===\n")
+    crash_log.write("\n=== Khởi động W4nwy Automation ===\n")
     faulthandler.enable(file=crash_log, all_threads=True)
     return crash_log
 
@@ -35,6 +35,7 @@ from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication
 
 from gui.main_window import MainWindow
+from gui.system_tray import SystemTrayController
 
 
 def load_stylesheet() -> str:
@@ -53,7 +54,7 @@ def create_application(
     application = QApplication(
         arguments if arguments is not None else sys.argv
     )
-    application.setApplicationName("FB Poster")
+    application.setApplicationName("W4nwy Automation")
     application.setStyle("Fusion")
     application.setFont(QFont("Noto Sans", 10))
     application.setStyleSheet(load_stylesheet())
@@ -64,6 +65,8 @@ def create_application(
 def main() -> int:
     application = create_application()
     window = MainWindow()
+    tray_controller = SystemTrayController(application, window)
+    tray_controller.start()
     window.show()
 
     return application.exec()

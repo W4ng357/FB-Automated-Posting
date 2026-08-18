@@ -162,19 +162,9 @@ class PlanGroupRow(QFrame):
         self.checkbox = QCheckBox()
         self.checkbox.setChecked(selected_count > 0)
         self.checkbox.setToolTip(f"Chọn {group.name}")
-        info = QVBoxLayout()
-        info.setSpacing(2)
         name = QLabel(group.name)
         name.setObjectName("CardTitle")
         name.setWordWrap(True)
-        url = QLabel(group.url)
-        url.setProperty("meta", True)
-        url.setWordWrap(True)
-        url.setTextInteractionFlags(
-            Qt.TextInteractionFlag.TextSelectableByMouse
-        )
-        info.addWidget(name)
-        info.addWidget(url)
         self.count_input = QSpinBox()
         self.count_input.setRange(1, 999)
         self.count_input.setValue(selected_count or 1)
@@ -187,7 +177,7 @@ class PlanGroupRow(QFrame):
             lambda _value: self.changed.emit()
         )
         root.addWidget(self.checkbox, 0, Qt.AlignmentFlag.AlignTop)
-        root.addLayout(info, 1)
+        root.addWidget(name, 1, Qt.AlignmentFlag.AlignVCenter)
         root.addWidget(self.count_input, 0, Qt.AlignmentFlag.AlignVCenter)
 
     def selected_count(self) -> int:

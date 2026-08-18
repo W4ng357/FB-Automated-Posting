@@ -3,6 +3,7 @@ from pathlib import Path
 from PySide6.QtCore import (
     QFileSystemWatcher,
     QLocale,
+    Slot,
     Qt,
     QTimer,
     QUrl,
@@ -111,6 +112,7 @@ class ListingDialog(QDialog):
             else None
         )
         self._draft_cleaned = False
+        self._is_closing = False
         self._compact_width = 1000
 
         if listing is None:
@@ -417,6 +419,7 @@ class ListingDialog(QDialog):
             "Quay lại chỉnh sửa" if is_preview else "Xem trước bài viết"
         )
 
+    @Slot()
     def _stabilize_editor_layout(self) -> None:
         self._sync_image_gallery_height()
         self.editor_content.updateGeometry()
@@ -453,7 +456,10 @@ class ListingDialog(QDialog):
         self.images_dir.mkdir(parents=True, exist_ok=True)
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.images_dir)))
 
+    @Slot(str)
     def _refresh_images_from_disk(self, *_args) -> None:
+        if self._is_closing:
+            return
         try:
             if self.draft_id is not None:
                 self.current_images = self.draft_manager.get_images(
@@ -503,6 +509,7 @@ class ListingDialog(QDialog):
         self._update_preview()
         QTimer.singleShot(0, self._sync_image_gallery_height)
 
+    @Slot()
     def _sync_image_gallery_height(self) -> None:
         width = max(self.images_container.width(), 180)
         content_height = self.images_layout.heightForWidth(width)
@@ -617,6 +624,7 @@ class ListingDialog(QDialog):
             QMessageBox.critical(self, "Không thể lưu phòng", str(error))
             return
 
+        self._stop_file_watcher()
         self._cleanup_draft()
         self.accept()
 
@@ -628,11 +636,22 @@ class ListingDialog(QDialog):
         finally:
             self._draft_cleaned = True
 
+    def _stop_file_watcher(self) -> None:
+        if self._is_closing:
+            return
+        self._is_closing = True
+        self.file_watcher.blockSignals(True)
+        watched_paths = self.file_watcher.directories()
+        if watched_paths:
+            self.file_watcher.removePaths(watched_paths)
+
     def reject(self) -> None:
+        self._stop_file_watcher()
         self._cleanup_draft()
         super().reject()
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        self._stop_file_watcher()
         if self.result() != QDialog.DialogCode.Accepted:
             self._cleanup_draft()
         super().closeEvent(event)

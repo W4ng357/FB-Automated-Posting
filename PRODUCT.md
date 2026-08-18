@@ -108,6 +108,10 @@ per-account queues rather than treating every post as a disposable command.
 - A stop request never interrupts an active Facebook submission. It takes
   effect at the next interval boundary, cancels an interval already in
   progress, preserves completed results, and closes the account browser safely.
+- When the operating system provides a system tray, closing or minimizing the
+  main window hides it behind a W4 tray icon without interrupting posting. The
+  tray restores or hides the window and provides an explicit safe Exit action.
+  Platforms without a tray keep normal window-close behavior.
 - Every completed attempt is emitted to that account's result dialog
   immediately and appears newest-first. A row shows the room image and facts,
   posting time, destination group, and a factual state: “Thành công” when a
@@ -131,7 +135,7 @@ per-account queues rather than treating every post as a disposable command.
 
 ## Brand Commitments
 
-- Product name: FB-Automated-Posting / concise in-app brand “FB POSTER”.
+- Project name: FB-Automated-Posting; in-app brand: “W4nwy Automation”.
 - The interface keeps a near-black foundation with restrained purple accents,
   muted red destructive actions, and clear success/warning states.
 - The voice is concise, calm, operational, and naturally Vietnamese.
@@ -143,8 +147,9 @@ per-account queues rather than treating every post as a disposable command.
 - Existing local listing metadata in `data/listings.json` and sample rental
   images in `data/test/images/`.
 - Existing browser-session directories under `browser_sessions/`.
-- No approved logo, icon set, external marketing claims, or Facebook group
-  imagery is supplied; the interface must not fabricate them.
+- No external logo asset, icon set, marketing claims, or Facebook group imagery
+  is supplied. The requested W4 tray mark is generated locally from the product
+  wordmark and existing purple palette.
 
 ## Product Principles
 
