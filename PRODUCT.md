@@ -75,6 +75,14 @@ per-account queues rather than treating every post as a disposable command.
 - Account state is explicit in text. Management distinguishes “Chưa đăng nhập”,
   “Chưa đồng bộ”, and “Đã đồng bộ”; posting separately reports ready, running,
   waiting-to-stop, stopped, completed, and error states.
+- The posting workspace uses a persistent vertical account rail. Selecting an
+  account changes only the workspace on the right; account status remains
+  visible in the rail and the page itself never gains a posting-content
+  scrollbar at the 1120×720 minimum window size.
+- A per-account plan dialog configures multiple rooms in one pass. The left
+  column selects rooms and shows their local image and room facts; the right
+  column stores an independent group/count map for the active room and can set
+  one count across all checked groups.
 - The user-facing content library is named “Phòng”; the persisted Python model
   remains `Listing` for backward compatibility. Room entry uses one required
   address field, while the legacy `location` value is synchronized from it.
@@ -86,6 +94,10 @@ per-account queues rather than treating every post as a disposable command.
   editor returns to the image section with a specific recovery message.
 - Different accounts may post concurrently; the same browser profile must never
   have two simultaneous workers.
+- “Bắt đầu tất cả” starts every logged-in account that has a plan and is not
+  already running. An account currently posting is skipped without preventing
+  the remaining eligible accounts from starting; if none are eligible, the UI
+  explains which prerequisites to check.
 - One posting round spans every queued room in order. Each still-active group
   receives one post for its room in that round; `post_interval` separates
   consecutive posts, including the transition between rooms, and
@@ -96,9 +108,12 @@ per-account queues rather than treating every post as a disposable command.
 - A stop request never interrupts an active Facebook submission. It takes
   effect at the next interval boundary, cancels an interval already in
   progress, preserves completed results, and closes the account browser safely.
-- Every completed attempt is emitted to the result list immediately. A result
-  shows success or failure, its destination URL, and opens the post permalink
-  when available or the Facebook group as a factual fallback.
+- Every completed attempt is emitted to that account's result dialog
+  immediately and appears newest-first. A row shows the room image and facts,
+  posting time, destination group, and a factual state: “Thành công” when a
+  permalink was captured, “Bị gián đoạn” when Facebook accepted the post but
+  no link was captured, or “Thất bại”. It opens the post permalink when
+  available or the Facebook group as a fallback.
 - Playwright objects are created and used entirely inside their worker thread.
 - Posting workers launch their persistent Chromium contexts headlessly. If the
   unchanged posting primitive times out while typing into the composer, the

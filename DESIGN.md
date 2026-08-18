@@ -29,6 +29,7 @@ colors:
   surface-control-hover: "#26262F"
   surface-running: "#281C45"
   surface-warning: "#292114"
+  surface-ready: "#2B1D49"
   surface-stepper: "#292931"
   surface-danger: "#2B181D"
   surface-error: "#301B21"
@@ -55,6 +56,7 @@ colors:
   border-control-hover: "#50505C"
   border-running: "#57388C"
   border-warning: "#59471F"
+  border-ready: "#7657B8"
   border-account-tab-selected: "#5A3A88"
   border-danger: "#603039"
   border-primary-disabled: "#30283E"
@@ -81,6 +83,7 @@ colors:
   text-terminal: "#D3D3DA"
   text-accent: "#D9CCFF"
   text-running: "#DDD1FF"
+  text-ready: "#E6DEFF"
   text-tab-selected: "#E6DEFF"
   text-meta: "#7E7E89"
   text-placeholder: "#92929D"
@@ -248,6 +251,7 @@ The canonical values are the YAML tokens above, extracted directly from `src/gui
 - **Progress Purple** (`accent-progress`): progress-bar chunks only.
 - **Soft Purple Selection** (`surface-accent-soft`, `border-accent-soft`, `text-accent`): selected sidebar items and related selected treatments.
 - **Running Purple** (`surface-running`, `border-running`, `text-accent`): an account worker that is actively posting.
+- **Ready Purple** (`surface-ready`, `border-ready`, `text-ready`): a posting account that is ready to start; this keeps readiness visually distinct from neutral idle states.
 
 ### Neutral
 
@@ -264,7 +268,8 @@ The canonical values are the YAML tokens above, extracted directly from `src/gui
 | --- | --- | --- | --- | --- |
 | Available / enabled | `text-success` | `surface-success` | `border-success` | “Đang dùng” |
 | Hidden / unavailable | `text-warning` | `surface-warning` | `border-warning` | “Đã ẩn” |
-| Idle | `text-idle` | `surface-idle-track` | `border-idle` | “Sẵn sàng”, “Chưa mở Chromium”, “Đã đóng Chromium” |
+| Ready to post | `text-ready` | `surface-ready` | `border-ready` | “Sẵn sàng” |
+| Idle | `text-idle` | `surface-idle-track` | `border-idle` | “Chưa mở Chromium”, “Đã đóng Chromium” |
 | Account needs login | `text-warning` | `surface-warning` | `border-warning` | “Chưa đăng nhập” |
 | Account has session but no profile | `text-warning` | `surface-warning` | `border-warning` | “Chưa đồng bộ” |
 | Account synced | `text-success` | `surface-success` | `border-success` | “Đã đồng bộ” |
@@ -309,7 +314,7 @@ No explicit line-height scale is implemented. Preserve Qt's native text metrics 
 
 ## Layout
 
-The main window has a 1120×720 minimum and opens at 1480×920. A fixed 228px sidebar sits on the left; there is no collapsed, overlay, bottom-navigation, or mobile layout in the current build. Page content receives 32px inline and 28px block margins, usually with 16px between major regions. Page changes use one subtle 180ms opacity transition from an already-visible state.
+The main window has a 1120×720 minimum and opens at 1480×920. A fixed 228px sidebar sits on the left; there is no collapsed, overlay, bottom-navigation, or mobile layout in the current build. Room and group pages receive 32px inline and 28px block margins. The denser posting workbench uses 24px inline and 20px block margins with 12px between major regions. Page changes use one subtle 180ms opacity transition from an already-visible state.
 
 The recurring page structure is header, search or overview strip, then a vertically scrolling list. Page headers keep the title/subtitle stack left and the main actions right. Listing and group cards fill the available width; their content expands while the action row remains content-sized.
 
@@ -332,7 +337,15 @@ The recurring page structure is header, search or overview strip, then a vertica
   minimum and opens at 760×570, keeping identity, guidance, factual status,
   and its three actions visible without an inner scrollbar. The alias editor
   has a 600px minimum width and opens at 660×360.
-- Account posting content scrolls inside each account tab. The activity tabs maintain a 250px minimum height.
+- The posting plan dialog has a 920×600 minimum and opens at 1080×700. Its
+  room and group columns scroll independently beneath fixed headings; its Save
+  and Cancel actions stay outside both scroll areas. The per-account results
+  dialog has an 860×520 minimum and opens at 1040×660, with one internal
+  newest-first result list.
+- Account posting workspaces never use a whole-workspace scrollbar. The
+  account rail scrolls only when the account list grows, and the terminal log
+  owns its local overflow while the account header, progress, and plan summary
+  remain visible.
 - Page, dialog, account, results, and log scroll areas explicitly suppress horizontal scrollbars. Inner scroll content keeps an 8–10px right gutter for the vertical scrollbar.
 - Room image previews use `FlowLayout`: compact 136px vertical cards with cached 116×72 thumbnails and 10px gaps wrap to the next row as width changes. The dialog body owns vertical overflow; the grid never produces horizontal scrolling.
 - High-DPI behavior is delegated to Qt 6. Do not add whole-interface scale transforms or hard-coded pixel multiplication.
@@ -445,7 +458,7 @@ closure before it accepts or rejects.
 its account-avatar mode uses a true elliptical painter path so both cached
 images and first-letter fallbacks are clipped to a circle. Account-manager
 cards use 64×64px avatars, login identity uses 76×76px, and posting account
-headers use 54×54px. The fallback keeps the same border and accessible “Ký
+headers use 46×46px. The fallback keeps the same border and accessible “Ký
 hiệu nhận diện” label; it does not fabricate a social profile image.
 
 ### Room editor and post preview
@@ -462,17 +475,60 @@ The secondary “Preview bài viết” control switches to the sibling Preview 
 
 Task cards, result cards, and group-selection rows use the raised card surface to remain legible when nested inside another panel. Room image previews use a compact horizontal card with a contained thumbnail, filename, and danger action so a complete image item remains visible inside the bounded gallery.
 
-### Tabs, queue, progress, log, and results
+### Account rail, plan, progress, log, and results
 
-Account tabs use a dark panel pane. Tabs show the cached Facebook avatar when
-available through the same circular crop as account headers, the synced name
-or optional alias, and an explicit “· trạng thái”.
+The posting page uses a fixed 214px account rail beside a `QStackedWidget`.
+Each rail item shows the same circular cached avatar as the account header,
+the synced name or optional alias, and an explicit status on its second line.
 The stable local account ID remains the worker/session key and appears in the
-tooltip and account header metadata. Selected tabs use the soft-purple surface
-and `text-tab-selected`; pending accounts remain visible as “Chưa đăng nhập” but
-cannot start until a session exists.
+tooltip and account-header metadata. The checked rail item uses the
+soft-purple surface and border; pending accounts remain visible as “Chưa đăng
+nhập” but cannot start until a session exists. Long account lists scroll only
+inside the rail.
 
-Each account owns a header, prominent progress region, queue, activity log, and result list in that order. Starting a plan disables the start button, listing selector, task addition, and each task card while enabling the muted-red “Dừng đăng bài” action. A stop request changes that action and the account state to “Đang chờ dừng”; it disables repeat requests and becomes “Đã dừng” only after the worker reaches a safe interval boundary. The disabled danger action uses the neutral disabled treatment instead of appearing active. The progress bar value is driven by attempted operations and interpolated for 320ms; adjacent text reports completed, total, failed, skipped or remaining counts plus current and next listing/group. Do not derive those facts from the log.
+Each account workspace keeps its identity and actions first, then a compact
+progress/plan pair and a terminal log that consumes remaining height. The page
+header owns “Cấu hình tất cả”: it opens the room/group dialog with the current
+tab's plan as a template and, on save, replaces every account plan with an
+independent copy. It is unavailable while any account is running. Each account
+workspace separately owns “Cấu hình riêng”, which opens the same dialog but
+changes only that account. The dialog title and helper sentence always name
+which scope will be changed before the operator saves.
+
+Room rows on the left carry checkbox, image, title, price, area, address and
+configured-count summary; group rows on the right configure the currently
+active room. The right-column search filters by group name or URL without
+case or Vietnamese-diacritic sensitivity, while preserving hidden selections
+and attempt counts. During a search, “Chọn tất cả nhóm đang hiển thị” reflects
+and changes only the filtered rows; clearing the search restores the full-list
+summary. Group selection and counts are stored independently for every checked
+room. “Chọn tất cả nhóm” reflects zero, partial and full selection for the
+active room and toggles its complete group set. “Đặt số lượt tất cả nhóm đã
+chọn thành” applies one count only to checked groups of the active room.
+The entire room row is the configuration target; mouse click, Enter, or Space
+switches the right column to that room. Selecting any group also includes its
+active room; the room checkbox can still remove that room from the plan. No
+redundant “Cấu hình” button appears inside the row.
+
+Starting a plan disables plan editing and Start while enabling the muted-red
+“Dừng đăng bài” action. A stop request changes that action and account state to
+“Đang chờ dừng”; it disables repeat requests and becomes “Đã dừng” only after
+the worker reaches a safe interval boundary. The disabled danger action uses
+the neutral disabled treatment instead of appearing active. The progress bar
+value is driven by attempted operations and interpolated for 320ms; adjacent
+text reports completed, total, failed, skipped or remaining counts plus current
+and next listing/group. Do not derive those facts from the log.
+
+“Bắt đầu tất cả” snapshots every logged-in account that has a plan and is not
+already running, then starts each candidate exactly once. Accounts already
+running are skipped while eligible remaining accounts still start. The button
+uses “Đang khởi động…” during the synchronous launch pass and becomes disabled
+only when no eligible account remains. Per-account running state is set before
+any page-level signal is emitted, avoiding a transient false-ready state.
+After browser work closes, the one-shot posting `QThread` finishes before the
+GUI releases it. Finished `QThread` wrappers remain owned by
+their account tab until tab teardown; they are not deferred-deleted while Qt is
+still dispatching completion signals.
 
 One round traverses every queued room and each currently active group once.
 `post_interval` separates consecutive posts, including the transition to the
@@ -481,10 +537,15 @@ Each configured count is an attempt budget: a failure consumes the current
 attempt but the target remains eligible in later rounds until that budget is
 exhausted. The total shown at start remains the denominator for the full run,
 including a safely stopped run.
-The log uses the terminal treatment and prepends `HH:mm:ss`. Each attempt adds
-a result card immediately and increments the “Kết quả (n)” tab label. Cards use
-explicit success/failure sentences, show a selectable destination URL, open the
-post when a permalink exists, and otherwise offer “Mở nhóm” for direct checking.
+The log uses the terminal treatment and prepends `HH:mm:ss`. Each attempt
+increments the per-account “Kết quả (n)” button and updates its modeless result
+dialog even while posting continues. Result rows are newest-first and show the
+room's first image, room ID/price/area/address, posting timestamp, group name,
+state and recovery detail. “Thành công” requires both a successful post and a
+captured permalink. A successful post without a permalink is “Bị gián đoạn”
+with the sentence “Đã đăng bài nhưng không lấy được liên kết để kiểm tra.” A
+failed attempt is “Thất bại” and shows its error. The action opens the post when
+a permalink exists and otherwise offers “Mở nhóm” for direct checking.
 
 ### Dialogs and feedback
 
@@ -517,10 +578,11 @@ Dialogs use a page-scale title, muted explanation, task content, and a bottom ac
 | Canonical colors, type sizes, radii, and control states | `src/gui/styles/dark.qss` |
 | Shared badge, empty state, thumbnail, and progress primitives | `src/gui/widgets/design_components.py` |
 | Main-window sizing, fixed sidebar, page navigation | `src/gui/main_window.py` |
-| Page headers, search, list scrolling, posting overview, account-tab identity, manager entry | `src/gui/pages/listings_page.py`, `groups_page.py`, `posting_page.py` |
-| Fixed dialog footers, room form, group metadata, group selection | `src/gui/dialogs/listing_dialog.py`, `group_dialog.py`, `group_selector_dialog.py` |
+| Page headers, search, list scrolling, posting overview, vertical account rail, manager entry | `src/gui/pages/listings_page.py`, `groups_page.py`, `posting_page.py` |
+| Fixed dialog footers, room form, group metadata, per-room plan selection | `src/gui/dialogs/listing_dialog.py`, `group_dialog.py`, `group_selector_dialog.py`, `posting_plan_dialog.py` |
 | Facebook-style room post preview | `src/gui/widgets/facebook_post_preview.py` |
-| Per-account queue, factual progress, logs, result presentation | `src/gui/widgets/account_posting_tab.py` |
+| Per-account plan summary, factual progress, logs, result-dialog entry | `src/gui/widgets/account_posting_tab.py` |
+| Newest-first room-rich result presentation | `src/gui/dialogs/posting_results_dialog.py`, `src/models/posting_result_entry.py` |
 | Account manager, add/login/re-sync flow, alias edit, destructive confirmation | `src/gui/dialogs/account_manager_dialog.py`, `account_login_dialog.py` |
 | Stable account identity and display-name priority | `src/models/facebook_account.py` |
 | Legacy-session merge, account CRUD, and synchronization | `src/services/facebook_account_service.py`, `src/session_manager.py` |

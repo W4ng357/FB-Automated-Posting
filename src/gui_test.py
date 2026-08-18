@@ -3,15 +3,18 @@ import tempfile
 import time
 import unittest
 
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
 
 try:
-    from PySide6.QtCore import QEventLoop, QSize, QTimer
+    from PySide6.QtCore import QEventLoop, QSize, Qt, QTimer
+    from PySide6.QtTest import QTest
     from PySide6.QtWidgets import (
         QApplication,
         QDialog,
+        QLabel,
         QMessageBox,
         QPushButton,
     )
@@ -23,6 +26,8 @@ except ModuleNotFoundError:
 
 if PYSIDE_AVAILABLE:
     from gui.dialogs.group_selector_dialog import GroupSelectorDialog
+    from gui.dialogs.posting_plan_dialog import PostingPlanDialog
+    from gui.dialogs.posting_results_dialog import PostingResultsDialog
     from gui.dialogs.group_dialog import GroupDialog
     from gui.dialogs.listing_dialog import ListingDialog
     from gui.dialogs.account_login_dialog import AccountLoginDialog
@@ -135,19 +140,22 @@ class GuiTest(unittest.TestCase):
             self.account_service,
         )
         tab = window.posting_page.account_tabs[account.id]
-        tab_index = window.posting_page.tabs.indexOf(tab)
+        tab_index = window.posting_page.workspace_stack.indexOf(tab)
+        account_button = window.posting_page.account_buttons[account.id]
         self.assertEqual(tab.account_title.text(), "Nguyễn Minh Anh")
         self.assertIn(
             "Nguyễn Minh Anh",
-            window.posting_page.tabs.tabText(tab_index),
+            account_button.text(),
         )
-        tab_avatar = window.posting_page.tabs.tabIcon(tab_index).pixmap(
-            QSize(22, 22)
+        tab_avatar = account_button.icon().pixmap(
+            QSize(38, 38)
         ).toImage()
         self.assertEqual(tab_avatar.pixelColor(0, 0).alpha(), 0)
-        self.assertEqual(tab_avatar.pixelColor(11, 11).alpha(), 255)
+        self.assertEqual(tab_avatar.pixelColor(19, 19).alpha(), 255)
+        self.assertGreaterEqual(tab_index, 0)
         self.assertTrue(tab.session_available)
-        self.assertTrue(tab.start_button.isEnabled())
+        self.assertEqual(tab.status_label.property("state"), "ready")
+        self.assertFalse(tab.start_button.isEnabled())
 
         edit = AccountEditDialog(self.account_service, account)
         edit.alias_input.setText("Tài khoản chủ nhà")
@@ -156,7 +164,7 @@ class GuiTest(unittest.TestCase):
         self.assertEqual(tab.account_title.text(), "Tài khoản chủ nhà")
         self.assertIn(
             "Tài khoản chủ nhà",
-            window.posting_page.tabs.tabText(tab_index),
+            account_button.text(),
         )
 
         group_dialog = GroupDialog(
@@ -184,13 +192,13 @@ class GuiTest(unittest.TestCase):
             self.account_service,
         )
         tab = window.posting_page.account_tabs[account.id]
-        tab_index = window.posting_page.tabs.indexOf(tab)
+        account_button = window.posting_page.account_buttons[account.id]
 
         self.assertFalse(tab.start_button.isEnabled())
         self.assertEqual(tab.status_label.text(), "Chưa đăng nhập")
         self.assertIn(
             "Chưa đăng nhập",
-            window.posting_page.tabs.tabText(tab_index),
+            account_button.text(),
         )
         self.assertFalse(window.posting_page.start_all_button.isEnabled())
         window.close()
@@ -492,6 +500,313 @@ class GuiTest(unittest.TestCase):
         self.assertEqual(names[first.url], first.name)
         selector.reject()
 
+    def test_posting_plan_dialog_configures_each_room_independently(self) -> None:
+        first_listing = self.listing_service.create_listing(
+            title="Phòng một",
+            location="Hà Nội",
+            price=3_500_000,
+            image_paths=[self._source_image("first.jpg")],
+        )
+        second_listing = self.listing_service.create_listing(
+            title="Phòng hai",
+            location="Cầu Giấy",
+            price=4_000_000,
+            image_paths=[self._source_image("second.jpg")],
+        )
+        first_group = self.group_service.create_group(
+            "https://facebook.com/groups/123",
+            "Nhóm một",
+        )
+        second_group = self.group_service.create_group(
+            "https://facebook.com/groups/456",
+            "Nhóm hai",
+        )
+        dialog = PostingPlanDialog(
+            self.listing_service,
+            self.group_service,
+            tasks=[
+                ListingPostingTask(
+                    first_listing.id,
+                    first_listing.title,
+                    [GroupTarget(first_group.url, 2)],
+                    {first_group.url: first_group.name},
+                )
+            ],
+        )
+
+        dialog.room_rows[second_listing.id].checkbox.setChecked(True)
+        first_row = dialog.room_rows[first_listing.id]
+        second_row = dialog.room_rows[second_listing.id]
+        QTest.mouseClick(
+            first_row,
+            Qt.MouseButton.LeftButton,
+            pos=first_row.rect().center(),
+        )
+        self.assertEqual(dialog._active_listing_id, first_listing.id)
+        QTest.mouseClick(
+            second_row,
+            Qt.MouseButton.LeftButton,
+            pos=second_row.rect().center(),
+        )
+        self.assertEqual(dialog._active_listing_id, second_listing.id)
+        self.assertFalse(
+            any(
+                button.text() == "Cấu hình"
+                for button in second_row.findChildren(QPushButton)
+            )
+        )
+        for row in dialog.group_rows:
+            row.checkbox.setChecked(True)
+        dialog.bulk_count_input.setValue(4)
+        dialog._apply_bulk_count()
+        tasks = dialog.selected_tasks()
+
+        self.assertEqual([task.listing_id for task in tasks], [
+            first_listing.id,
+            second_listing.id,
+        ])
+        self.assertEqual(tasks[0].group_targets[0].target_count, 2)
+        self.assertEqual(
+            [target.target_count for target in tasks[1].group_targets],
+            [4, 4],
+        )
+        dialog.reject()
+
+    def test_posting_plan_dialog_selects_all_groups(self) -> None:
+        listing = self.listing_service.create_listing(
+            title="Phòng đăng chung",
+            location="Hà Nội",
+            price=3_500_000,
+            image_paths=[self._source_image("shared-plan.jpg")],
+        )
+        self.group_service.create_group(
+            "https://facebook.com/groups/select-all-1",
+            "Nhóm chọn một",
+        )
+        self.group_service.create_group(
+            "https://facebook.com/groups/select-all-2",
+            "Nhóm chọn hai",
+        )
+        dialog = PostingPlanDialog(
+            self.listing_service,
+            self.group_service,
+        )
+
+        self.assertFalse(hasattr(dialog, "select_all_rooms"))
+        self.assertEqual(
+            dialog.select_all_groups.checkState(),
+            Qt.CheckState.Unchecked,
+        )
+        dialog.select_all_groups.click()
+        self.assertTrue(dialog.room_rows[listing.id].checkbox.isChecked())
+        self.assertTrue(
+            all(row.checkbox.isChecked() for row in dialog.group_rows)
+        )
+        self.assertEqual(
+            dialog.select_all_groups.text(),
+            "Chọn tất cả nhóm (2/2)",
+        )
+
+        dialog.group_rows[1].checkbox.setChecked(False)
+        self.assertEqual(
+            dialog.select_all_groups.checkState(),
+            Qt.CheckState.PartiallyChecked,
+        )
+        self.assertIn("(1/2)", dialog.select_all_groups.text())
+        dialog.select_all_groups.click()
+        self.assertTrue(all(row.checkbox.isChecked() for row in dialog.group_rows))
+
+        dialog.select_all_groups.click()
+        self.assertFalse(
+            any(row.checkbox.isChecked() for row in dialog.group_rows)
+        )
+        self.assertEqual(
+            dialog.select_all_groups.checkState(),
+            Qt.CheckState.Unchecked,
+        )
+        dialog.reject()
+
+    def test_posting_plan_dialog_filters_groups_without_losing_selection(
+        self,
+    ) -> None:
+        self.listing_service.create_listing(
+            title="Phòng cần đăng",
+            location="Hà Nội",
+            price=3_500_000,
+            image_paths=[self._source_image("filtered-plan.jpg")],
+        )
+        matching_group = self.group_service.create_group(
+            "https://facebook.com/groups/pham-van-dong",
+            "Phòng trọ Phạm Văn Đồng",
+        )
+        hidden_group = self.group_service.create_group(
+            "https://facebook.com/groups/giao-luu-hang-hoa",
+            "Giao lưu hàng hóa",
+        )
+        dialog = PostingPlanDialog(
+            self.listing_service,
+            self.group_service,
+        )
+
+        dialog.group_search_input.setText("phong tro")
+        visible_rows = dialog._visible_group_rows()
+        self.assertEqual(
+            [row.group.url for row in visible_rows],
+            [matching_group.url],
+        )
+        self.assertEqual(
+            dialog.select_all_groups.text(),
+            "Chọn tất cả nhóm đang hiển thị (0/1)",
+        )
+        dialog.select_all_groups.click()
+        self.assertTrue(visible_rows[0].checkbox.isChecked())
+
+        dialog.group_search_input.clear()
+        self.assertEqual(
+            dialog.select_all_groups.checkState(),
+            Qt.CheckState.PartiallyChecked,
+        )
+        self.assertIn("(1/2)", dialog.select_all_groups.text())
+        self.assertFalse(
+            next(
+                row
+                for row in dialog.group_rows
+                if row.group.url == hidden_group.url
+            ).checkbox.isChecked()
+        )
+
+        dialog.group_search_input.setText("giao-luu-hang-hoa")
+        self.assertEqual(
+            [row.group.url for row in dialog._visible_group_rows()],
+            [hidden_group.url],
+        )
+        dialog.group_search_input.setText("khong co nhom nay")
+        self.assertEqual(dialog._visible_group_rows(), [])
+        self.assertFalse(dialog.select_all_groups.isEnabled())
+        self.assertIsNotNone(dialog.group_no_results)
+        self.assertFalse(dialog.group_no_results.isHidden())
+
+        dialog.group_search_input.clear()
+        selected_tasks = dialog.selected_tasks()
+        self.assertEqual(len(selected_tasks), 1)
+        self.assertEqual(
+            [target.url for target in selected_tasks[0].group_targets],
+            [matching_group.url],
+        )
+        dialog.reject()
+
+    def test_separate_and_global_plan_buttons_have_distinct_scopes(self) -> None:
+        listing = self.listing_service.create_listing(
+            title="Phòng dùng chung",
+            location="Hà Nội",
+            price=3_500_000,
+            image_paths=[self._source_image("shared-accounts.jpg")],
+        )
+        group = self.group_service.create_group(
+            "https://facebook.com/groups/shared-plan",
+            "Nhóm dùng chung",
+        )
+        for account_id in ("acc01", "acc02"):
+            (self.sessions_dir / account_id).mkdir()
+        task = ListingPostingTask(
+            listing.id,
+            listing.title,
+            [GroupTarget(group.url, 2)],
+            {group.url: group.name},
+        )
+        captured: list[dict] = []
+
+        class AcceptedPlanDialog:
+            def __init__(self, *args, **kwargs):
+                captured.append(kwargs)
+
+            def exec(self):
+                return QDialog.DialogCode.Accepted
+
+            @staticmethod
+            def selected_tasks():
+                return [task]
+
+        window = MainWindow(
+            self.listing_service,
+            self.group_service,
+            self.account_service,
+        )
+        with patch(
+            "gui.pages.posting_page.PostingPlanDialog",
+            AcceptedPlanDialog,
+        ):
+            window.posting_page.account_tabs["acc01"]._configure_plan()
+
+            first_tasks = window.posting_page.account_tabs["acc01"].tasks
+            second_tasks = window.posting_page.account_tabs["acc02"].tasks
+            self.assertEqual(first_tasks[0].total_attempts, 2)
+            self.assertEqual(second_tasks, [])
+            self.assertIn("Cấu hình riêng", captured[0]["scope_title"])
+
+            window.posting_page._configure_all_plans()
+
+        first_tasks = window.posting_page.account_tabs["acc01"].tasks
+        second_tasks = window.posting_page.account_tabs["acc02"].tasks
+        self.assertEqual(captured[1]["scope_title"], "Cấu hình tất cả tài khoản")
+        self.assertEqual(
+            window.posting_page.configure_all_button.text(),
+            "Cấu hình tất cả",
+        )
+        self.assertEqual(
+            window.posting_page.account_tabs["acc01"].plan_button.text(),
+            "Cấu hình riêng",
+        )
+        self.assertEqual(first_tasks[0].total_attempts, 2)
+        self.assertEqual(second_tasks[0].total_attempts, 2)
+        self.assertIsNot(first_tasks[0], second_tasks[0])
+        self.assertIsNot(
+            first_tasks[0].group_targets[0],
+            second_tasks[0].group_targets[0],
+        )
+        window.close()
+
+    def test_results_dialog_is_newest_first_and_marks_missing_link(self) -> None:
+        listing = self.listing_service.create_listing(
+            title="Phòng kết quả",
+            location="Hà Nội",
+            price=3_500_000,
+            image_paths=[self._source_image("result.jpg")],
+        )
+        group = self.group_service.create_group(
+            "https://facebook.com/groups/789",
+            "Nhóm kết quả",
+        )
+        first_time = datetime.now().astimezone() - timedelta(minutes=1)
+        first = PostingResultEntry(
+            "acc01",
+            listing.id,
+            listing.title,
+            PostResult(group.url, group.name, True, f"{group.url}/posts/1"),
+            first_time,
+        )
+        interrupted = PostingResultEntry(
+            "acc01",
+            listing.id,
+            listing.title,
+            PostResult(group.url, group.name, True, None),
+        )
+        dialog = PostingResultsDialog(
+            "Tài khoản thử nghiệm",
+            self.listing_service,
+            [first, interrupted],
+        )
+
+        self.assertIs(dialog.rows[0].entry, interrupted)
+        self.assertTrue(
+            any(
+                label.text() == "Bị gián đoạn"
+                for label in dialog.rows[0].findChildren(QLabel)
+            )
+        )
+        self.assertIn("1 bị gián đoạn", dialog.summary_label.text())
+        dialog.reject()
+
     def test_group_name_persistence_refresh_and_search(self) -> None:
         captured = []
         worker = GroupMetadataWorker(
@@ -658,17 +973,20 @@ class GuiTest(unittest.TestCase):
         self.assertEqual(tab._completion_status, "Hoàn tất")
         self.assertEqual(live_result_seen, [(True, 1)])
         self.assertEqual(
-            tab.activity_tabs.tabText(tab.results_tab_index),
+            tab.results_button.text(),
             "Kết quả (1)",
         )
-        self.assertGreater(tab.results_layout.count(), 1)
-        result_card = tab.results_layout.itemAt(0).widget()
+        tab._open_results()
+        self.application.processEvents()
+        self.assertIsNotNone(tab._results_dialog)
+        result_card = tab._results_dialog.rows[0]
         self.assertTrue(
             any(
                 button.text() == "Mở nhóm"
                 for button in result_card.findChildren(QPushButton)
             )
         )
+        tab._results_dialog.close()
 
     def test_concurrent_accounts_and_duplicate_start_stops(self) -> None:
         source = self._source_image()
@@ -776,6 +1094,89 @@ class GuiTest(unittest.TestCase):
         self.assertEqual(observed_parallel, [True])
         self.assertEqual(finished_accounts, {"acc01", "acc02"})
         self.assertTrue(all(tab.start_button.isEnabled() for tab in tabs))
+
+    def test_start_all_starts_remaining_accounts_and_thread_state_is_atomic(
+        self,
+    ) -> None:
+        source = self._source_image("start-all.jpg")
+        listing = self.listing_service.create_listing(
+            title="Phòng chạy tất cả",
+            location="Hà Nội",
+            price=3_000_000,
+            image_paths=[source],
+        )
+        group = self.group_service.create_group(
+            "https://facebook.com/groups/start-all",
+            "Nhóm chạy tất cả",
+        )
+        for account_id in ("acc01", "acc02", "acc03"):
+            (self.sessions_dir / account_id).mkdir()
+
+        class HoldingService:
+            def run_plan(self, **_kwargs):
+                time.sleep(0.08)
+                return []
+
+        window = MainWindow(
+            self.listing_service,
+            self.group_service,
+            self.account_service,
+        )
+        tabs = list(window.posting_page.account_tabs.values())
+        for tab in tabs:
+            tab.worker_factory = lambda session_path, plan: PostingWorker(
+                session_path,
+                plan,
+                posting_service=HoldingService(),
+            )
+            tab.tasks = [
+                ListingPostingTask(
+                    listing.id,
+                    listing.title,
+                    [GroupTarget(group.url, 1)],
+                    {group.url: group.name},
+                )
+            ]
+            tab._render_queue()
+        window.posting_page._update_overview()
+
+        observed_running_state: list[bool] = []
+        tabs[0].running_changed.connect(
+            lambda _account, running: (
+                observed_running_state.append(tabs[0].is_running)
+                if running
+                else None
+            )
+        )
+        self.assertTrue(tabs[0].start())
+        self.assertEqual(observed_running_state, [True])
+        self.assertTrue(window.posting_page.start_all_button.isEnabled())
+        self.assertEqual(window.posting_page.start_all(), 2)
+        self.assertTrue(all(tab.is_running for tab in tabs))
+        self.assertFalse(window.posting_page.start_all_button.isEnabled())
+        self.assertTrue(all(tab.stop() for tab in tabs))
+
+        loop = QEventLoop()
+
+        def wait_until_finished() -> None:
+            if not any(tab.is_running for tab in tabs):
+                loop.quit()
+                return
+            QTimer.singleShot(5, wait_until_finished)
+
+        QTimer.singleShot(5, wait_until_finished)
+        QTimer.singleShot(2000, loop.quit)
+        loop.exec()
+        self.assertFalse(any(tab.is_running for tab in tabs))
+
+        self.assertEqual(window.posting_page.start_all(), 3)
+        self.assertTrue(all(tab.is_running for tab in tabs))
+        loop = QEventLoop()
+        QTimer.singleShot(5, wait_until_finished)
+        QTimer.singleShot(2000, loop.quit)
+        loop.exec()
+        self.assertFalse(any(tab.is_running for tab in tabs))
+        window.close()
 
     def test_worker_error_restores_account_controls(self) -> None:
         source = self._source_image()

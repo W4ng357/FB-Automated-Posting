@@ -3,17 +3,25 @@ import traceback
 from pathlib import Path
 from threading import Event
 
-from PySide6.QtCore import QObject, Signal, Slot
+from PySide6.QtCore import QThread, Signal
 
 from models.account_posting_plan import AccountPostingPlan
 from services.account_posting_service import AccountPostingService
 
 
-class PostingWorker(QObject):
-    started = Signal()
+class PostingWorker(QThread):
+    """Run one posting plan without moving QObjects between threads.
+
+    ``AccountPostingService`` is synchronous and does not need a Qt event
+    loop.  Keeping the QThread wrapper owned by the GUI thread while its
+    ``run`` method performs the blocking work avoids the unsafe worker
+    re-parenting/deletion sequence that previously corrupted Qt state when
+    several accounts stopped at nearly the same time.
+    """
+
     progress = Signal(object)
     result = Signal(object)
-    finished = Signal(object)
+    completed = Signal(object)
     error = Signal(str)
 
     def __init__(
@@ -33,9 +41,7 @@ class PostingWorker(QObject):
     def request_stop(self) -> None:
         self._stop_requested.set()
 
-    @Slot()
     def run(self) -> None:
-        self.started.emit()
         try:
             results = self.posting_service.run_plan(
                 session_path=self.session_path,
@@ -48,4 +54,4 @@ class PostingWorker(QObject):
             traceback.print_exc()
             self.error.emit(str(error))
             return
-        self.finished.emit(results)
+        self.completed.emit(results)

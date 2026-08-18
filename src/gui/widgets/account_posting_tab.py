@@ -3,37 +3,30 @@ from pathlib import Path
 
 from PySide6.QtCore import QSize, QThread, QTime, Qt, Signal
 from PySide6.QtWidgets import (
-    QComboBox,
-    QDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
-    QScrollArea,
-    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
-from gui.dialogs.group_selector_dialog import GroupSelectorDialog
+from gui.dialogs.posting_results_dialog import PostingResultsDialog
 from gui.widgets.design_components import (
-    EmptyState,
     RoundedThumbnail,
     SmoothProgressBar,
     StatusBadge,
 )
-from gui.widgets.posting_task_card import PostingTaskCard
-from gui.widgets.result_card import ResultCard
 from gui.workers.posting_worker import PostingWorker
 from models.account_posting_plan import AccountPostingPlan
 from models.facebook_account import FacebookAccount
 from models.listing_posting_task import ListingPostingTask
 from models.posting_progress import PostingProgress
 from models.posting_result_entry import PostingResultEntry
-from services.group_service import GroupService
 from services.facebook_account_service import FacebookAccountService
+from services.group_service import GroupService
 from services.listing_service import ListingService
 from session_manager import get_session
 
@@ -42,6 +35,7 @@ class AccountPostingTab(QWidget):
     running_changed = Signal(str, bool)
     status_changed = Signal(str, str)
     queue_changed = Signal(str)
+    plan_requested = Signal(str)
 
     def __init__(
         self,
@@ -69,7 +63,11 @@ class AccountPostingTab(QWidget):
         self.worker_factory = worker_factory
         self.tasks: list[ListingPostingTask] = []
         self._thread: QThread | None = None
+        # Finished QThread wrappers stay owned by the tab. Deleting them while
+        # PySide is still dispatching cross-thread signals can corrupt Qt state.
+        self._retired_threads: list[QThread] = []
         self._worker: PostingWorker | None = None
+        self._run_active = False
         self._stop_pending = False
         self._run_total_attempts = 0
         self._completion_status = (
@@ -77,52 +75,53 @@ class AccountPostingTab(QWidget):
         )
         self.last_progress: PostingProgress | None = None
         self.result_entries: list[PostingResultEntry] = []
-        self.queue_empty_state: EmptyState | None = None
+        self._run_result_start_index = 0
+        self._results_dialog: PostingResultsDialog | None = None
+        self._available_listing_count = 0
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
-        account_scroll = QScrollArea()
-        account_scroll.setWidgetResizable(True)
-        account_scroll.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
-        content = QWidget()
-        content_layout = QVBoxLayout(content)
-        content_layout.setContentsMargins(20, 18, 10, 20)
-        content_layout.setSpacing(16)
-        content_layout.addWidget(self._create_account_header())
-        content_layout.addWidget(self._create_progress_panel())
-        content_layout.addWidget(self._create_queue_panel())
-        content_layout.addWidget(self._create_activity_panel())
-        content_layout.addStretch()
-        account_scroll.setWidget(content)
-        root.addWidget(account_scroll)
+        root.setSpacing(10)
+        root.addWidget(self._create_account_header())
+        summary = QHBoxLayout()
+        summary.setSpacing(10)
+        summary.addWidget(self._create_progress_panel(), 3)
+        summary.addWidget(self._create_plan_panel(), 2)
+        root.addLayout(summary)
+        root.addWidget(self._create_activity_panel(), 1)
         self.refresh_available_data()
         self._render_queue()
         self._render_results([])
 
     @property
     def is_running(self) -> bool:
-        return self._thread is not None and self._thread.isRunning()
+        return self._run_active
 
     @property
     def total_attempts(self) -> int:
         return sum(task.total_attempts for task in self.tasks)
 
+    @property
+    def has_available_listings(self) -> bool:
+        return self._available_listing_count > 0
+
     def _create_account_header(self) -> QFrame:
         panel = QFrame()
         panel.setProperty("workspaceHeader", True)
-        layout = QHBoxLayout(panel)
-        layout.setContentsMargins(18, 16, 18, 16)
-        layout.setSpacing(12)
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setSpacing(10)
+
+        identity_row = QHBoxLayout()
+        identity_row.setSpacing(10)
         self.account_avatar = RoundedThumbnail(
             self.avatar_path,
             self.account.display_name,
-            QSize(54, 54),
+            QSize(46, 46),
             circular=True,
         )
         heading = QVBoxLayout()
-        heading.setSpacing(4)
+        heading.setSpacing(2)
         self.account_title = QLabel(self.account.display_name)
         self.account_title.setObjectName("SectionTitle")
         self.account_hint = QLabel(self._account_hint_text())
@@ -132,117 +131,48 @@ class AccountPostingTab(QWidget):
         heading.addWidget(self.account_hint)
         self.status_label = StatusBadge(
             self._completion_status,
-            "idle" if self.session_available else "warning",
+            "ready" if self.session_available else "warning",
         )
-        self.start_button = QPushButton("Bắt đầu tài khoản")
-        self.start_button.setProperty("role", "primary")
-        self.start_button.setMinimumHeight(42)
-        self.start_button.setEnabled(self.session_available)
-        if not self.session_available:
-            self.start_button.setToolTip(
-                "Hãy đăng nhập tài khoản trước khi bắt đầu đăng bài."
-            )
-        self.start_button.clicked.connect(self.start)
+        identity_row.addWidget(self.account_avatar)
+        identity_row.addLayout(heading, 1)
+        identity_row.addWidget(self.status_label, 0, Qt.AlignmentFlag.AlignTop)
+        layout.addLayout(identity_row)
+
+        actions = QHBoxLayout()
+        actions.setSpacing(8)
+        self.plan_button = QPushButton("Cấu hình riêng")
+        self.plan_button.setProperty("density", "compact")
+        self.plan_button.clicked.connect(self._configure_plan)
+        self.results_button = QPushButton("Kết quả")
+        self.results_button.setProperty("role", "ghost")
+        self.results_button.setProperty("density", "compact")
+        self.results_button.clicked.connect(self._open_results)
         self.stop_button = QPushButton("Dừng đăng bài")
         self.stop_button.setProperty("role", "danger")
-        self.stop_button.setMinimumHeight(42)
+        self.stop_button.setProperty("density", "compact")
         self.stop_button.setEnabled(False)
         self.stop_button.setToolTip(
             "Dừng tại khoảng chờ an toàn sau khi bài hiện tại hoàn tất."
         )
         self.stop_button.clicked.connect(self.stop)
-        layout.addWidget(self.account_avatar)
-        layout.addLayout(heading, 1)
-        layout.addWidget(self.status_label)
-        layout.addWidget(self.stop_button)
-        layout.addWidget(self.start_button)
-        return panel
-
-    def update_account(
-        self,
-        account: FacebookAccount,
-        avatar_path: Path | None,
-        session_available: bool,
-    ) -> None:
-        self.account = account
-        self.account_name = account.id
-        self.avatar_path = avatar_path
-        self.session_available = session_available
-        self.account_avatar.set_source(
-            avatar_path,
-            account.display_name,
-        )
-        self.account_title.setText(account.display_name)
-        self.account_hint.setText(self._account_hint_text())
-        self.start_button.setEnabled(
-            session_available and not self.is_running
-        )
-        self.start_button.setToolTip(
-            ""
-            if session_available
-            else "Hãy đăng nhập tài khoản trước khi bắt đầu đăng bài."
-        )
-        if not self.is_running and self._completion_status in {
-            "Sẵn sàng",
-            "Chưa đăng nhập",
-        }:
-            self._completion_status = (
-                "Sẵn sàng" if session_available else "Chưa đăng nhập"
-            )
-            self.status_label.set_state(
-                self._completion_status,
-                "idle" if session_available else "warning",
-            )
-
-    def _account_hint_text(self) -> str:
-        if self.account.alias.strip() and self.account.facebook_name.strip():
-            identity = f"Facebook: {self.account.facebook_name.strip()}"
-        elif self.account.is_synced:
-            identity = f"Phiên {self.account.id}"
-        else:
-            identity = f"Phiên {self.account.id} · chưa đồng bộ hồ sơ"
-        return f"{identity} · một kế hoạch chạy tại một thời điểm"
-
-    def _create_queue_panel(self) -> QFrame:
-        panel = QFrame()
-        panel.setProperty("section", True)
-        layout = QVBoxLayout(panel)
-        layout.setContentsMargins(18, 18, 18, 18)
-        layout.setSpacing(12)
-        heading = QHBoxLayout()
-        title = QLabel("Hàng chờ đăng")
-        title.setObjectName("SectionTitle")
-        self.queue_summary = QLabel()
-        self.queue_summary.setProperty("muted", True)
-        heading.addWidget(title)
-        heading.addStretch()
-        heading.addWidget(self.queue_summary)
-        layout.addLayout(heading)
-
-        selector = QHBoxLayout()
-        self.listing_combo = QComboBox()
-        self.listing_combo.setMinimumWidth(280)
-        add_button = QPushButton("Thêm vào hàng chờ")
-        add_button.setProperty("density", "compact")
-        add_button.clicked.connect(self._add_task)
-        self.add_task_button = add_button
-        selector.addWidget(self.listing_combo, 1)
-        selector.addWidget(add_button)
-        layout.addLayout(selector)
-
-        self.queue_container = QWidget()
-        self.queue_layout = QVBoxLayout(self.queue_container)
-        self.queue_layout.setContentsMargins(0, 0, 0, 0)
-        self.queue_layout.setSpacing(9)
-        layout.addWidget(self.queue_container)
+        self.start_button = QPushButton("Bắt đầu")
+        self.start_button.setProperty("role", "primary")
+        self.start_button.setProperty("density", "compact")
+        self.start_button.clicked.connect(self.start)
+        actions.addWidget(self.plan_button)
+        actions.addWidget(self.results_button)
+        actions.addStretch()
+        actions.addWidget(self.stop_button)
+        actions.addWidget(self.start_button)
+        layout.addLayout(actions)
         return panel
 
     def _create_progress_panel(self) -> QFrame:
         panel = QFrame()
         panel.setProperty("progressCard", True)
         layout = QVBoxLayout(panel)
-        layout.setContentsMargins(18, 17, 18, 17)
-        layout.setSpacing(10)
+        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setSpacing(7)
         row = QHBoxLayout()
         title = QLabel("Tiến trình")
         title.setObjectName("SectionTitle")
@@ -255,36 +185,56 @@ class AccountPostingTab(QWidget):
         self.progress_bar.setRange(0, 1)
         self.progress_bar.setValue(0)
         self.progress_bar.setTextVisible(False)
-        current_caption = QLabel("Đang xử lý")
-        current_caption.setProperty("meta", True)
-        self.current_label = QLabel("Chưa bắt đầu")
+        self.current_label = QLabel("Đang xử lý: Chưa bắt đầu")
         self.current_label.setProperty("progressDetail", True)
         self.current_label.setWordWrap(True)
-        next_caption = QLabel("Tiếp theo")
-        next_caption.setProperty("meta", True)
-        self.next_label = QLabel("Chưa có lượt tiếp theo")
-        self.next_label.setProperty("progressDetail", True)
+        self.next_label = QLabel("Tiếp theo: Chưa có lượt tiếp theo")
+        self.next_label.setProperty("meta", True)
         self.next_label.setWordWrap(True)
-        details = QHBoxLayout()
-        details.setSpacing(28)
-        current = QVBoxLayout()
-        current.setSpacing(3)
-        current.addWidget(current_caption)
-        current.addWidget(self.current_label)
-        upcoming = QVBoxLayout()
-        upcoming.setSpacing(3)
-        upcoming.addWidget(next_caption)
-        upcoming.addWidget(self.next_label)
-        details.addLayout(current, 1)
-        details.addLayout(upcoming, 1)
         layout.addLayout(row)
         layout.addWidget(self.progress_bar)
-        layout.addLayout(details)
+        layout.addWidget(self.current_label)
+        layout.addWidget(self.next_label)
         return panel
 
-    def _create_activity_panel(self) -> QTabWidget:
-        tabs = QTabWidget()
-        tabs.setObjectName("ActivityTabs")
+    def _create_plan_panel(self) -> QFrame:
+        panel = QFrame()
+        panel.setProperty("planSummary", True)
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setSpacing(6)
+        row = QHBoxLayout()
+        title = QLabel("Kế hoạch")
+        title.setObjectName("SectionTitle")
+        self.queue_summary = QLabel()
+        self.queue_summary.setProperty("overviewStrong", True)
+        row.addWidget(title)
+        row.addStretch()
+        row.addWidget(self.queue_summary)
+        self.plan_detail_label = QLabel()
+        self.plan_detail_label.setProperty("muted", True)
+        self.plan_detail_label.setWordWrap(True)
+        self.plan_detail_label.setAlignment(
+            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
+        )
+        layout.addLayout(row)
+        layout.addWidget(self.plan_detail_label, 1)
+        return panel
+
+    def _create_activity_panel(self) -> QFrame:
+        panel = QFrame()
+        panel.setProperty("section", True)
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(12, 10, 12, 12)
+        layout.setSpacing(8)
+        heading = QHBoxLayout()
+        title = QLabel("Nhật ký hoạt động")
+        title.setObjectName("SectionTitle")
+        helper = QLabel("Cập nhật trực tiếp theo từng tài khoản")
+        helper.setProperty("meta", True)
+        heading.addWidget(title)
+        heading.addStretch()
+        heading.addWidget(helper)
         self.log_output = QPlainTextEdit()
         self.log_output.setReadOnly(True)
         self.log_output.setProperty("terminal", True)
@@ -294,155 +244,111 @@ class AccountPostingTab(QWidget):
         self.log_output.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
-        self.results_scroll = QScrollArea()
-        self.results_scroll.setWidgetResizable(True)
-        self.results_scroll.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
-        self.results_container = QWidget()
-        self.results_layout = QVBoxLayout(self.results_container)
-        self.results_layout.setContentsMargins(10, 10, 10, 10)
-        self.results_layout.setSpacing(9)
-        self.results_scroll.setWidget(self.results_container)
-        tabs.addTab(self.log_output, "Nhật ký hoạt động")
-        self.results_tab_index = tabs.addTab(
-            self.results_scroll,
-            "Kết quả",
-        )
-        self.activity_tabs = tabs
-        tabs.setMinimumHeight(250)
-        return tabs
+        layout.addLayout(heading)
+        layout.addWidget(self.log_output, 1)
+        return panel
+
+    def update_account(
+        self,
+        account: FacebookAccount,
+        avatar_path: Path | None,
+        session_available: bool,
+    ) -> None:
+        self.account = account
+        self.account_name = account.id
+        self.avatar_path = avatar_path
+        self.session_available = session_available
+        self.account_avatar.set_source(avatar_path, account.display_name)
+        self.account_title.setText(account.display_name)
+        self.account_hint.setText(self._account_hint_text())
+        if self._results_dialog is not None:
+            self._results_dialog.account_display_name = account.display_name
+        if not self.is_running and self._completion_status in {
+            "Sẵn sàng",
+            "Chưa đăng nhập",
+        }:
+            self._completion_status = (
+                "Sẵn sàng" if session_available else "Chưa đăng nhập"
+            )
+            self.status_label.set_state(
+                self._completion_status,
+                "ready" if session_available else "warning",
+            )
+        self._update_action_availability()
+
+    def _account_hint_text(self) -> str:
+        if self.account.alias.strip() and self.account.facebook_name.strip():
+            identity = f"Facebook: {self.account.facebook_name.strip()}"
+        elif self.account.is_synced:
+            identity = f"Phiên {self.account.id}"
+        else:
+            identity = f"Phiên {self.account.id} · chưa đồng bộ hồ sơ"
+        return f"{identity} · một kế hoạch chạy tại một thời điểm"
 
     def refresh_available_data(self) -> None:
-        current_id = self.listing_combo.currentData()
-        queued_ids = {task.listing_id for task in self.tasks}
         try:
-            listings = [
-                listing
+            self._available_listing_count = sum(
+                1
                 for listing in self.listing_service.get_all()
-                if listing.enabled and listing.id not in queued_ids
-            ]
+                if listing.enabled
+            )
         except Exception as error:
-            listings = []
+            self._available_listing_count = 0
             self._append_log(f"Không tải được danh sách phòng: {error}")
-        self.listing_combo.clear()
-        for listing in listings:
-            self.listing_combo.addItem(
-                f"{listing.id} · {listing.title}", listing.id
-            )
-        if not listings:
-            self.listing_combo.addItem(
-                "Không còn phòng khả dụng", None
-            )
-        if current_id is not None:
-            index = self.listing_combo.findData(current_id)
-            if index >= 0:
-                self.listing_combo.setCurrentIndex(index)
-        self.add_task_button.setEnabled(bool(listings) and not self.is_running)
-        if self.queue_empty_state is not None:
-            self.queue_empty_state.action_button.setEnabled(
-                bool(listings) and not self.is_running
-            )
+        self._update_action_availability()
 
-    def _add_task(self) -> None:
-        listing_id = self.listing_combo.currentData()
-        if not listing_id:
+    def _configure_plan(self) -> None:
+        if self.is_running:
+            return
+        if not self._available_listing_count:
             QMessageBox.information(
                 self,
-                "Không có phòng khả dụng",
-                "Hãy tạo và bật ít nhất một phòng trước.",
+                "Chưa có phòng khả dụng",
+                "Hãy tạo, thêm ảnh và bật ít nhất một phòng trước.",
             )
             return
-        listing = self.listing_service.get_by_id(listing_id)
-        if listing is None:
-            self.refresh_available_data()
-            return
-        selector = GroupSelectorDialog(
-            self.group_service,
-            preferred_account=self.account_name,
-            account_service=self.account_service,
-            parent=self,
-        )
-        if selector.exec() != QDialog.DialogCode.Accepted:
-            return
-        targets, names = selector.selected_targets()
-        self.tasks.append(
-            ListingPostingTask(
-                listing_id=listing.id,
-                listing_title=listing.title,
-                group_targets=targets,
-                group_names=names,
+        self.plan_requested.emit(self.account_name)
+
+    def apply_plan(self, tasks: list[ListingPostingTask]) -> None:
+        if self.is_running:
+            raise RuntimeError(
+                f"{self.account.display_name} đang chạy, không thể đổi kế hoạch."
             )
-        )
+        self.tasks = [task.fresh_copy() for task in tasks]
         self._render_queue()
-        self.refresh_available_data()
         self.queue_changed.emit(self.account_name)
 
-    def _edit_task(self, listing_id: str) -> None:
-        task = next(
-            (task for task in self.tasks if task.listing_id == listing_id),
-            None,
-        )
-        if task is None:
-            return
-        counts = {
-            target.url: target.target_count
-            for target in task.group_targets
-        }
-        selector = GroupSelectorDialog(
-            self.group_service,
-            selected_counts=counts,
-            preferred_account=self.account_name,
-            account_service=self.account_service,
-            parent=self,
-        )
-        if selector.exec() != QDialog.DialogCode.Accepted:
-            return
-        targets, names = selector.selected_targets()
-        task.group_targets = targets
-        task.group_names = names
-        self._render_queue()
-        self.queue_changed.emit(self.account_name)
+    def _add_task(self) -> None:
+        self._configure_plan()
+
+    def _edit_task(self, _listing_id: str) -> None:
+        self._configure_plan()
 
     def _remove_task(self, listing_id: str) -> None:
         self.tasks = [
             task for task in self.tasks if task.listing_id != listing_id
         ]
         self._render_queue()
-        self.refresh_available_data()
         self.queue_changed.emit(self.account_name)
 
     def _render_queue(self) -> None:
-        while self.queue_layout.count():
-            item = self.queue_layout.takeAt(0)
-            widget = item.widget()
-            if widget is not None:
-                widget.setParent(None)
-                widget.deleteLater()
-        self.queue_empty_state = None
-        if not self.tasks:
-            self.queue_empty_state = EmptyState(
-                "Hàng chờ đang trống",
-                "Thêm một phòng, chọn nhóm và số lượt đăng để bắt đầu.",
-                "Thêm phòng vào hàng chờ",
-            )
-            self.queue_empty_state.action_requested.connect(self._add_task)
-            self.queue_empty_state.action_button.setEnabled(
-                self.listing_combo.currentData() is not None
-                and not self.is_running
-            )
-            self.queue_layout.addWidget(self.queue_empty_state)
-        else:
-            for task in self.tasks:
-                card = PostingTaskCard(task)
-                card.edit_requested.connect(self._edit_task)
-                card.remove_requested.connect(self._remove_task)
-                card.setEnabled(not self.is_running)
-                self.queue_layout.addWidget(card)
-        self.queue_layout.addStretch()
         self.queue_summary.setText(
             f"{len(self.tasks)} phòng · {self.total_attempts} lượt"
         )
+        if not self.tasks:
+            self.plan_detail_label.setText(
+                "Chưa có phòng. Mở Cấu hình riêng để tạo kế hoạch."
+            )
+        else:
+            lines = [
+                f"{task.listing_title} · {len(task.group_targets)} nhóm"
+                f" · {task.total_attempts} lượt"
+                for task in self.tasks[:3]
+            ]
+            if len(self.tasks) > 3:
+                lines.append(f"Và {len(self.tasks) - 3} phòng khác")
+            self.plan_detail_label.setText("\n".join(lines))
+        self._update_action_availability()
 
     def start(self) -> bool:
         if self.is_running:
@@ -457,8 +363,8 @@ class AccountPostingTab(QWidget):
         if not self.tasks:
             QMessageBox.warning(
                 self,
-                "Hàng chờ đang trống",
-                f"Hãy thêm ít nhất một phòng cho tài khoản {self.account_name}.",
+                "Kế hoạch đang trống",
+                f"Hãy chọn ít nhất một phòng cho {self.account.display_name}.",
             )
             return False
         try:
@@ -481,7 +387,23 @@ class AccountPostingTab(QWidget):
             QMessageBox.warning(self, "Chưa thể bắt đầu", str(error))
             return False
 
-        self._render_results([])
+        try:
+            worker = self.worker_factory(session_path, plan)
+        except Exception as error:
+            QMessageBox.warning(self, "Chưa thể bắt đầu", str(error))
+            return False
+        worker.started.connect(
+            lambda: self._append_log("Đã khởi động bộ máy đăng bài.")
+        )
+        worker.progress.connect(self._on_progress)
+        worker.result.connect(self._on_result)
+        worker.completed.connect(self._on_worker_finished)
+        worker.error.connect(self._on_worker_error)
+        worker.finished.connect(self._on_thread_finished)
+        self._thread = worker
+        self._worker = worker
+        self._run_active = True
+        self._run_result_start_index = len(self.result_entries)
         self._stop_pending = False
         self._run_total_attempts = plan.total_attempts
         self.last_progress = None
@@ -490,26 +412,7 @@ class AccountPostingTab(QWidget):
             f"và {plan.total_attempts} lượt."
         )
         self._set_running(True)
-        thread = QThread(self)
-        worker = self.worker_factory(session_path, plan)
-        worker.moveToThread(thread)
-        thread.started.connect(worker.run)
-        worker.started.connect(
-            lambda: self._append_log("Đã khởi động bộ máy đăng bài.")
-        )
-        worker.progress.connect(self._on_progress)
-        worker.result.connect(self._on_result)
-        worker.finished.connect(self._on_worker_finished)
-        worker.error.connect(self._on_worker_error)
-        worker.finished.connect(thread.quit)
-        worker.error.connect(thread.quit)
-        worker.finished.connect(worker.deleteLater)
-        worker.error.connect(worker.deleteLater)
-        thread.finished.connect(self._on_thread_finished)
-        thread.finished.connect(thread.deleteLater)
-        self._thread = thread
-        self._worker = worker
-        thread.start()
+        worker.start()
         return True
 
     def stop(self) -> bool:
@@ -517,7 +420,6 @@ class AccountPostingTab(QWidget):
             return False
         if self._stop_pending:
             return False
-
         self._stop_pending = True
         self._worker.request_stop()
         self.stop_button.setEnabled(False)
@@ -544,38 +446,36 @@ class AccountPostingTab(QWidget):
             details += f" · còn {progress.remaining}"
         self.progress_numbers.setText(details)
         self.current_label.setText(
+            "Đang xử lý: "
             f"{progress.current_listing_title or 'Chưa có phòng'} · "
             f"{progress.current_group_name or 'Chưa có nhóm'}"
         )
-        self.next_label.setText(
-            f"{progress.next_listing_title or 'Không còn lượt chờ'}"
-            + (
-                f" · {progress.next_group_name}"
-                if progress.next_group_name
-                else ""
-            )
-        )
+        next_text = progress.next_listing_title or "Không còn lượt chờ"
+        if progress.next_group_name:
+            next_text += f" · {progress.next_group_name}"
+        self.next_label.setText(f"Tiếp theo: {next_text}")
         self._append_log(progress.message)
 
     def _on_result(self, result_object: object) -> None:
         entry = result_object
         if not isinstance(entry, PostingResultEntry):
             return
-        if not self.result_entries:
-            self._clear_results()
-            self.results_layout.addStretch()
         self.result_entries.append(entry)
-        insert_at = max(self.results_layout.count() - 1, 0)
-        self.results_layout.insertWidget(insert_at, ResultCard(entry))
-        self._update_results_tab_label()
+        self._update_results_button()
+        if self._results_dialog is not None:
+            self._results_dialog.set_entries(self.result_entries)
 
     def _on_worker_finished(self, results_object: object) -> None:
         entries = list(results_object)
-        if entries != self.result_entries:
-            self._render_results(entries)
+        current_run_entries = self.result_entries[
+            self._run_result_start_index:
+        ]
+        if entries != current_run_entries:
+            self._render_results(
+                self.result_entries[:self._run_result_start_index] + entries
+            )
         was_stopped = bool(
-            self.last_progress is not None
-            and self.last_progress.stopped
+            self.last_progress is not None and self.last_progress.stopped
         )
         self._completion_status = "Đã dừng" if was_stopped else "Hoàn tất"
         successful = sum(1 for entry in entries if entry.result.success)
@@ -591,17 +491,13 @@ class AccountPostingTab(QWidget):
             )
         else:
             self._append_log(
-                f"Kết thúc: {successful}/{run_total} "
-                "lượt thành công."
+                f"Kết thúc: {successful}/{run_total} lượt thành công."
             )
 
     def _on_worker_error(self, message: str) -> None:
         self._completion_status = "Lỗi"
         log_message = f"Đã dừng vì lỗi: {message}"
-        if (
-            self.last_progress is None
-            or self.last_progress.message != log_message
-        ):
+        if self.last_progress is None or self.last_progress.message != log_message:
             self._append_log(log_message)
         QMessageBox.critical(
             self,
@@ -610,23 +506,20 @@ class AccountPostingTab(QWidget):
         )
 
     def _on_thread_finished(self) -> None:
+        self._run_active = False
+        if self._thread is not None:
+            self._retired_threads.append(self._thread)
         self._thread = None
         self._worker = None
         self._stop_pending = False
         self._set_running(False)
 
     def _set_running(self, running: bool) -> None:
-        self.start_button.setEnabled(
-            not running and self.session_available
-        )
         self.stop_button.setEnabled(running and not self._stop_pending)
         self.stop_button.setText(
             "Đang chờ dừng…" if self._stop_pending else "Dừng đăng bài"
         )
-        self.listing_combo.setEnabled(not running)
-        self.add_task_button.setEnabled(
-            not running and self.listing_combo.count() > 0
-        )
+        self.plan_button.setEnabled(not running and self._available_listing_count > 0)
         status_text = (
             "Đang chờ dừng"
             if running and self._stop_pending
@@ -646,50 +539,66 @@ class AccountPostingTab(QWidget):
                 else "error"
                 if self._completion_status == "Lỗi"
                 else "warning"
-                if self._completion_status in {
-                    "Chưa đăng nhập",
-                    "Đã dừng",
-                }
-                else "idle"
+                if self._completion_status in {"Chưa đăng nhập", "Đã dừng"}
+                else "ready"
             ),
         )
-        self._render_queue()
+        self._update_action_availability(running)
         self.running_changed.emit(self.account_name, running)
-        self.status_changed.emit(
-            self.account_name,
-            status_text,
+        self.status_changed.emit(self.account_name, status_text)
+
+    def _update_action_availability(self, running: bool | None = None) -> None:
+        running = self.is_running if running is None else running
+        self.plan_button.setEnabled(
+            not running and self._available_listing_count > 0
         )
+        self.start_button.setEnabled(
+            not running and self.session_available and bool(self.tasks)
+        )
+        if not self.session_available:
+            self.start_button.setToolTip(
+                "Hãy đăng nhập tài khoản trước khi bắt đầu đăng bài."
+            )
+        elif not self.tasks:
+            self.start_button.setToolTip(
+                "Hãy chọn phòng và nhóm trước khi bắt đầu."
+            )
+        else:
+            self.start_button.setToolTip("")
+
+    def _open_results(self) -> None:
+        if self._results_dialog is None:
+            self._results_dialog = PostingResultsDialog(
+                self.account.display_name,
+                self.listing_service,
+                self.result_entries,
+                parent=self,
+            )
+            self._results_dialog.finished.connect(self._release_results_dialog)
+        else:
+            self._results_dialog.set_entries(self.result_entries)
+        self._results_dialog.show()
+        self._results_dialog.raise_()
+        self._results_dialog.activateWindow()
+
+    def _release_results_dialog(self, _result: int) -> None:
+        if self._results_dialog is not None:
+            self._results_dialog.deleteLater()
+            self._results_dialog = None
+        self.results_button.setFocus()
 
     def _append_log(self, message: str) -> None:
         timestamp = QTime.currentTime().toString("HH:mm:ss")
         self.log_output.appendPlainText(f"[{timestamp}] {message}")
 
-    def _clear_results(self) -> None:
-        while self.results_layout.count():
-            item = self.results_layout.takeAt(0)
-            widget = item.widget()
-            if widget is not None:
-                widget.setParent(None)
-                widget.deleteLater()
-
-    def _render_results(self, entries: list) -> None:
+    def _render_results(self, entries: list[PostingResultEntry]) -> None:
         self.result_entries = list(entries)
-        self._clear_results()
-        if not entries:
-            empty = EmptyState(
-                "Chưa có kết quả",
-                "Kết quả của lần chạy sẽ xuất hiện tại đây.",
-            )
-            self.results_layout.addWidget(empty)
-        else:
-            for entry in entries:
-                self.results_layout.addWidget(ResultCard(entry))
-        self.results_layout.addStretch()
-        self._update_results_tab_label()
+        self._update_results_button()
+        if self._results_dialog is not None:
+            self._results_dialog.set_entries(self.result_entries)
 
-    def _update_results_tab_label(self) -> None:
+    def _update_results_button(self) -> None:
         count = len(self.result_entries)
-        self.activity_tabs.setTabText(
-            self.results_tab_index,
-            f"Kết quả ({count})" if count else "Kết quả",
+        self.results_button.setText(
+            f"Kết quả ({count})" if count else "Kết quả"
         )

@@ -45,6 +45,29 @@ QFrame[progressCard="true"] {
     border-radius: 12px;
 }
 
+QFrame[planSummary="true"] {
+    background-color: #141419;
+    border: 1px solid #292933;
+    border-radius: 12px;
+}
+
+QFrame#AccountRail {
+    background-color: #0F0F13;
+    border: 1px solid #24242C;
+    border-radius: 12px;
+}
+
+QStackedWidget#AccountWorkspace {
+    background-color: transparent;
+    border: none;
+}
+
+QFrame[selectionPane="true"] {
+    background-color: #111116;
+    border: 1px solid #292933;
+    border-radius: 12px;
+}
+
 QFrame[card="true"],
 QFrame[accountCard="true"] {
     background-color: #141419;
@@ -66,14 +89,33 @@ QFrame[groupRow="true"] {
     border-radius: 10px;
 }
 
+QFrame[roomPlanRow="true"] {
+    background-color: #18181F;
+    border: 1px solid transparent;
+    border-radius: 10px;
+}
+
+QFrame[roomPlanRow="true"]:hover {
+    background-color: #1C1C24;
+    border-color: #34343E;
+}
+
+QFrame[roomPlanRow="true"][active="true"] {
+    background-color: #21182F;
+    border-color: #5A3A88;
+}
+
+QFrame[roomPlanRow="true"]:focus {
+    border: 2px solid #9B7AE8;
+}
+
 QFrame[emptyState="true"] {
     background-color: #111116;
     border: 1px solid #25252D;
     border-radius: 12px;
 }
 
-QFrame[section="true"] QFrame[emptyState="true"],
-QTabWidget#ActivityTabs QFrame[emptyState="true"] {
+QFrame[section="true"] QFrame[emptyState="true"] {
     background-color: transparent;
     border: none;
 }
@@ -162,6 +204,20 @@ QLabel[progressDetail="true"] {
     color: #C6C6CE;
 }
 
+QLabel[planMeta="true"] {
+    color: #B9A1F4;
+    font-size: 13px;
+}
+
+QLabel[resultDetail="true"] {
+    color: #C6C6CE;
+}
+
+QLabel[resultGroup="true"] {
+    color: #E4E4E9;
+    font-weight: 600;
+}
+
 QLabel[badge="true"],
 QLabel[status="enabled"],
 QLabel[status="disabled"] {
@@ -192,6 +248,12 @@ QLabel[badge="true"][state="idle"] {
     color: #C7C7CF;
     background-color: #202027;
     border: 1px solid #303039;
+}
+
+QLabel[badge="true"][state="ready"] {
+    color: #E6DEFF;
+    background-color: #2B1D49;
+    border: 1px solid #7657B8;
 }
 
 QLabel[badge="true"][state="running"] {
@@ -342,6 +404,38 @@ QPushButton[nav="true"]:checked {
     color: #D9CCFF;
 }
 
+QPushButton[nav="true"]:focus {
+    border: 2px solid #9B7AE8;
+    padding: 9px 13px;
+}
+
+QPushButton[accountRail="true"] {
+    text-align: left;
+    padding: 8px 10px;
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    color: #AFAFBA;
+    font-weight: 600;
+}
+
+QPushButton[accountRail="true"]:hover {
+    background-color: #18181E;
+    border-color: #303039;
+    color: #F4F4F5;
+}
+
+QPushButton[accountRail="true"]:checked {
+    background-color: #241A38;
+    border-color: #5A3A88;
+    color: #E6DEFF;
+}
+
+QPushButton[accountRail="true"]:focus {
+    border: 2px solid #9B7AE8;
+    padding: 7px 9px;
+}
+
 QLineEdit,
 QPlainTextEdit,
 QComboBox,
@@ -455,6 +549,11 @@ QCheckBox::indicator:checked {
     border-color: #9B7AE8;
 }
 
+QCheckBox::indicator:indeterminate {
+    background-color: #302248;
+    border-color: #9B7AE8;
+}
+
 QCheckBox::indicator:disabled {
     background-color: #17171C;
     border-color: #303038;
@@ -486,41 +585,8 @@ QTabBar::tab:hover:!selected {
     background-color: #1C1C23;
 }
 
-QTabWidget#AccountTabs::pane {
-    background-color: #0E0E12;
-    border-color: #24242C;
-    border-radius: 12px;
-}
-
-QTabWidget#AccountTabs QTabBar::tab {
-    background-color: #111116;
-    border-color: #26262F;
-    padding: 10px 18px;
-    min-width: 132px;
-}
-
-QTabWidget#AccountTabs QTabBar {
-    qproperty-iconSize: 22px 22px;
-}
-
-QTabWidget#AccountTabs QTabBar::tab:selected {
-    background-color: #21172F;
-    border-color: #5A3A88;
-    color: #E6DEFF;
-}
-
 QTabWidget#RoomEditorTabs::pane {
     background-color: #0F0F13;
-}
-
-QTabWidget#ActivityTabs::pane {
-    background-color: #101014;
-    border-color: #26262F;
-}
-
-QTabWidget#ActivityTabs QTabBar::tab {
-    min-width: 128px;
-    padding: 8px 14px;
 }
 
 QProgressBar {
