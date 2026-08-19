@@ -29,6 +29,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Enable Long Path Support
+        run: |
+          Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1
+
       - name: Install Playwright browsers (Bundled)
         run: |
           $env:PLAYWRIGHT_BROWSERS_PATH = "0"
@@ -37,6 +41,12 @@ jobs:
       - name: Build with PyInstaller (ONEDIR)
         run: |
           pyinstaller --noconfirm FBPoster.spec
+
+      - name: Prune redundant browser binaries
+        run: |
+          Remove-Item -Recurse -Force "dist\FBPoster\_internal\playwright\driver\package\.local-browsers\chromium_headless_shell-*" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "dist\FBPoster\_internal\playwright\driver\package\.local-browsers\ffmpeg-*" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "dist\FBPoster\_internal\playwright\driver\package\.local-browsers\winldd-*" -ErrorAction SilentlyContinue
 
       - name: Create Portable ZIP
         run: |
@@ -52,7 +62,8 @@ jobs:
           if (-not $iscc) {
             $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
           }
-          & $iscc packaging\windows\installer.iss
+          $distPath = (Resolve-Path "dist\FBPoster").Path
+          & $iscc "/DAppSourceDir=$distPath" packaging\windows\installer.iss
 
       - name: Upload Windows Artifacts to Release
         uses: softprops/action-gh-release@v2

@@ -1,8 +1,12 @@
-﻿; Inno Setup Script for FB Poster
+; Inno Setup Script for FB Poster
 #define MyAppName "FB Poster"
 #define MyAppVersion "1.0.0"
 #define MyAppPublisher "FB Poster Team"
 #define MyAppExeName "FBPoster.exe"
+
+#ifndef AppSourceDir
+#define AppSourceDir "..\..\dist\FBPoster"
+#endif
 
 [Setup]
 AppId={{C8E11D32-15E8-4BA6-9F01-44781A827B04}
@@ -26,7 +30,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "..\..\dist\FBPoster\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#AppSourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
