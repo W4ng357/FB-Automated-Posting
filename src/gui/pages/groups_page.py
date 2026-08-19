@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui.dialogs.group_dialog import GroupDialog
-from gui.widgets.design_components import EmptyState
+from gui.widgets.design_components import EmptyState, SearchLineEdit
 from gui.widgets.group_card import GroupCard
 from models.saved_group import SavedGroup
 from services.group_service import GroupService
@@ -53,13 +53,10 @@ class GroupsPage(QWidget):
         header.addWidget(add_button)
         root.addLayout(header)
 
-        self.search_input = QLineEdit()
-        self.search_input.setProperty("search", True)
-        self.search_input.setPlaceholderText(
-            "Tìm theo tên, mã hoặc URL nhóm…"
+        self.search_input = SearchLineEdit(
+            placeholder="Tìm theo tên, mã hoặc URL nhóm…"
         )
-        self.search_input.setClearButtonEnabled(True)
-        self.search_input.textChanged.connect(self._render_groups)
+        self.search_input.liveTextChanged.connect(self._render_groups)
         self.search_input.setMaximumWidth(760)
         self.count_label = QLabel()
         self.count_label.setProperty("meta", True)
@@ -96,16 +93,19 @@ class GroupsPage(QWidget):
             return
         self._render_groups()
 
-    def _render_groups(self) -> None:
+    def _render_groups(self, query: str | None = None) -> None:
         self._clear()
-        query = self.search_input.text().strip().lower()
+        if query is None:
+            raw_query = self.search_input.effective_text().strip().lower()
+        else:
+            raw_query = query.strip().lower()
         visible = [
             group
             for group in self.groups
-            if not query
-            or query in group.id.lower()
-            or query in group.name.lower()
-            or query in group.url.lower()
+            if not raw_query
+            or raw_query in group.id.lower()
+            or raw_query in group.name.lower()
+            or raw_query in group.url.lower()
         ]
         self.count_label.setText(f"{len(visible)} nhóm")
         if not visible:

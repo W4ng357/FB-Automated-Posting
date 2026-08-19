@@ -4,10 +4,10 @@ from dataclasses import dataclass
 @dataclass
 class Listing:
     id: str
-    title: str
-    location: str
-    price: int
-
+    title: str = ""
+    location: str = ""
+    price: int = 0
+    price_unit: str = "TR"
     address: str = ""
     area: float | None = None
     description: str = ""
@@ -18,11 +18,11 @@ class Listing:
         if not self.id.strip():
             raise ValueError("Mã phòng không được để trống.")
 
-        if not self.title.strip():
-            raise ValueError("Tên phòng không được để trống.")
-
-        if not self.location.strip():
+        if not self.location.strip() and not self.address.strip():
             raise ValueError("Địa chỉ phòng không được để trống.")
+
+        if not self.location.strip() and self.address.strip():
+            self.location = self.address.strip()
 
         if self.price < 0:
             raise ValueError("Giá thuê không được là số âm.")

@@ -6,6 +6,7 @@ from PySide6.QtGui import (
     QFont,
     QIcon,
     QImageReader,
+    QInputMethodEvent,
     QPainter,
     QPainterPath,
     QPen,
@@ -14,6 +15,7 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import (
     QFrame,
     QLabel,
+    QLineEdit,
     QProgressBar,
     QPushButton,
     QVBoxLayout,
@@ -242,3 +244,37 @@ class SmoothProgressBar(QProgressBar):
         self._animation.setStartValue(self.value())
         self._animation.setEndValue(target)
         self._animation.start()
+
+
+class SearchLineEdit(QLineEdit):
+    """Search input that emits liveTextChanged on keystrokes, clipboard actions, and IME pre-edit composition."""
+
+    liveTextChanged = Signal(str)
+
+    def __init__(self, placeholder: str = "Tìm kiếm…", parent=None) -> None:
+        super().__init__(parent)
+        self._current_preedit = ""
+        self.setAttribute(Qt.WidgetAttribute.WA_InputMethodEnabled, True)
+        self.setProperty("search", True)
+        self.setPlaceholderText(placeholder)
+        self.setClearButtonEnabled(True)
+        self.textChanged.connect(self._on_text_changed)
+
+    def _on_text_changed(self, text: str) -> None:
+        if not text:
+            self._current_preedit = ""
+        self.liveTextChanged.emit(self.effective_text())
+
+    def effective_text(self) -> str:
+        base = self.text()
+        if not self._current_preedit:
+            return base
+        pos = self.cursorPosition()
+        return base[:pos] + self._current_preedit + base[pos:]
+
+    def inputMethodEvent(self, event: QInputMethodEvent) -> None:
+        self._current_preedit = event.preeditString()
+        super().inputMethodEvent(event)
+        if not event.commitString():
+            self.liveTextChanged.emit(self.effective_text())
+

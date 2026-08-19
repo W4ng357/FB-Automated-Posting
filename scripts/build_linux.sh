@@ -36,36 +36,18 @@ $PYTHON_CMD -m playwright install chromium
 echo "Cleaning previous build artifacts..."
 rm -rf build dist
 
-# Parse build target argument (default: both onedir and onefile)
-BUILD_ONEDIR=true
-BUILD_ONEFILE=true
+# 5. Build distributions using FBPoster.spec
+echo "Building distributions from FBPoster.spec..."
+$PYTHON_CMD -m PyInstaller --noconfirm FBPoster.spec
 
-if [ "$1" == "--onedir" ]; then
-    BUILD_ONEFILE=false
-elif [ "$1" == "--onefile" ]; then
-    BUILD_ONEDIR=false
-fi
-
-# 5. Build ONEDIR directory package
-if [ "$BUILD_ONEDIR" = true ]; then
-    echo "Building ONEDIR distribution (dist/FBPoster/)..."
-    $PYTHON_CMD -m PyInstaller --noconfirm FBPoster.spec
+if [ -f "dist/FBPoster/FBPoster" ]; then
     chmod +x dist/FBPoster/FBPoster
-    echo "✓ ONEDIR build completed: $PROJECT_ROOT/dist/FBPoster/FBPoster"
+    echo "✓ ONEDIR package ready: $PROJECT_ROOT/dist/FBPoster/FBPoster"
 fi
 
-# 6. Build ONEFILE standalone executable
-if [ "$BUILD_ONEFILE" = true ]; then
-    echo "Building ONEFILE standalone executable (dist/FBPoster)..."
-    $PYTHON_CMD -m PyInstaller --noconfirm --onefile --windowed \
-        --name FBPoster \
-        --paths src \
-        --add-data "src/gui/styles/dark.qss:src/gui/styles" \
-        src/gui/app.py
-
-    # Rename if necessary or ensure executable permissions
-    chmod +x dist/FBPoster
-    echo "✓ ONEFILE build completed: $PROJECT_ROOT/dist/FBPoster"
+if [ -f "dist/FBPoster-standalone" ]; then
+    chmod +x dist/FBPoster-standalone
+    echo "✓ ONEFILE executable ready: $PROJECT_ROOT/dist/FBPoster-standalone"
 fi
 
 echo "=== Linux Build Successful ==="

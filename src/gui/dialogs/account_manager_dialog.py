@@ -157,6 +157,9 @@ class AccountEditDialog(QDialog):
         self.facebook_name.setPlaceholderText("Chưa lấy tên Facebook")
         alias_label = QLabel("Tên hiển thị")
         self.alias_input = QLineEdit(account.alias)
+        self.alias_input.setAttribute(
+            Qt.WidgetAttribute.WA_InputMethodEnabled, True
+        )
         self.alias_input.setPlaceholderText(
             "Để trống nếu muốn dùng tên Facebook"
         )

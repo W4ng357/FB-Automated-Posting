@@ -9,6 +9,9 @@ SRC_DIR = Path(__file__).resolve().parents[1]
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
+import os
+from PySide6.QtCore import QCoreApplication
+
 from app_paths import (
     APP_NAME,
     LOGS_DIR,
@@ -17,6 +20,24 @@ from app_paths import (
     get_resource_path,
     setup_playwright_env,
 )
+
+# Discover system Qt6 platform input context plugins (Fcitx5, IBus) on Linux
+if sys.platform.startswith("linux"):
+    for plugin_dir in (
+        "/usr/lib/qt6/plugins",
+        "/usr/lib64/qt6/plugins",
+        "/usr/lib/x86_64-linux-gnu/qt6/plugins",
+        "/usr/lib/qt/plugins",
+        "/usr/lib64/qt/plugins",
+    ):
+        if Path(plugin_dir).is_dir():
+            QCoreApplication.addLibraryPath(plugin_dir)
+
+    xmod = os.environ.get("XMODIFIERS", "").lower()
+    if "fcitx" in xmod and not os.environ.get("QT_IM_MODULE"):
+        os.environ["QT_IM_MODULE"] = "fcitx"
+    elif "ibus" in xmod and not os.environ.get("QT_IM_MODULE"):
+        os.environ["QT_IM_MODULE"] = "ibus"
 
 
 def _setup_logging():

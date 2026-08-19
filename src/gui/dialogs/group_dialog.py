@@ -1,4 +1,4 @@
-from PySide6.QtCore import QThread, QTimer
+from PySide6.QtCore import Qt, QThread, QTimer
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -47,6 +47,7 @@ class GroupDialog(QDialog):
             session_lister=list_sessions,
         )
 
+        self.setAttribute(Qt.WidgetAttribute.WA_InputMethodEnabled, True)
         self.setWindowTitle(
             "Chỉnh sửa nhóm" if group else "Thêm nhóm Facebook"
         )
@@ -81,6 +82,9 @@ class GroupDialog(QDialog):
         form.setHorizontalSpacing(20)
         form.setVerticalSpacing(13)
         self.url_input = QLineEdit(group.url if group else "")
+        self.url_input.setAttribute(
+            Qt.WidgetAttribute.WA_InputMethodEnabled, True
+        )
         self.url_input.setPlaceholderText(
             "https://www.facebook.com/groups/…"
         )
@@ -97,6 +101,9 @@ class GroupDialog(QDialog):
             if preferred_index >= 0:
                 self.account_combo.setCurrentIndex(preferred_index)
         self.name_input = QLineEdit(group.name if group else "")
+        self.name_input.setAttribute(
+            Qt.WidgetAttribute.WA_InputMethodEnabled, True
+        )
         self.name_input.setPlaceholderText(
             "Tên nhóm sẽ tự điền sau khi lấy từ Facebook"
         )

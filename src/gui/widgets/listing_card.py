@@ -41,9 +41,15 @@ class ListingCard(QFrame):
 
         image_paths = images if isinstance(images, list) else []
         image_count = len(image_paths) if isinstance(images, list) else images
+        display_title = (
+            listing.title.strip()
+            or listing.address.strip()
+            or listing.location.strip()
+            or f"Phòng {listing.id}"
+        )
         thumbnail = RoundedThumbnail(
             image_paths[0] if image_paths else None,
-            fallback_text=listing.title,
+            fallback_text=display_title,
         )
         thumbnail.setToolTip(
             str(image_paths[0])
@@ -56,20 +62,21 @@ class ListingCard(QFrame):
         content_layout.setSpacing(4)
 
         title_row = QHBoxLayout()
-        title = QLabel(listing.title)
+        title = QLabel(display_title)
         title.setObjectName("CardTitle")
         title.setWordWrap(True)
 
         title_row.addWidget(title)
         title_row.addStretch()
 
+        unit = getattr(listing, "price_unit", "TR") or "TR"
         area_text = (
             f" · {format_area(listing.area)}m²"
             if listing.area is not None
             else ""
         )
         summary = QLabel(
-            f"{listing.id}  ·  {format_price(listing.price)}/tháng"
+            f"{listing.id}  ·  {format_price(listing.price, unit)}/tháng"
             f"{area_text}"
         )
         summary.setProperty("muted", True)
@@ -78,6 +85,8 @@ class ListingCard(QFrame):
         address.setProperty("muted", True)
         address.setWordWrap(True)
         address.setToolTip(address_text)
+        if not listing.title.strip():
+            address.hide()
 
         image_text = (
             "Không đọc được số ảnh"

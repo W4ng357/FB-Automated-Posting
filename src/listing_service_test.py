@@ -87,7 +87,7 @@ class ListingServiceTest(unittest.TestCase):
         )
 
         self.assertIn(
-            "💰 Giá: 3,7tr/tháng",
+            "💰 Giá: 3,7TR/tháng",
             caption,
         )
         self.assertIn("📐 Diện tích: 27m²", caption)
@@ -100,9 +100,10 @@ class ListingServiceTest(unittest.TestCase):
     def test_caption_omits_empty_optional_fields(self) -> None:
         listing = Listing(
             id="R001",
-            title="Phòng trọ",
+            title="",
             location="Cầu Giấy",
             price=2_500_000,
+            price_unit="tr",
         )
 
         caption = generate_caption(listing)
@@ -110,17 +111,19 @@ class ListingServiceTest(unittest.TestCase):
         self.assertEqual(
             caption,
             (
-                "Phòng trọ\n\n"
                 "📍 Địa chỉ: Cầu Giấy\n"
                 "💰 Giá: 2,5tr/tháng"
             ),
         )
 
     def test_price_uses_compact_million_format(self) -> None:
-        self.assertEqual(format_price(3_500_000), "3,5tr")
-        self.assertEqual(format_price(4_000_000), "4tr")
-        self.assertEqual(format_price(7_000_000), "7tr")
-        self.assertEqual(format_price(3_050_000), "3,05tr")
+        self.assertEqual(format_price(3_500_000), "3,5TR")
+        self.assertEqual(format_price(4_000_000), "4TR")
+        self.assertEqual(format_price(7_000_000), "7TR")
+        self.assertEqual(format_price(3_050_000), "3,05TR")
+        self.assertEqual(format_price(3_200_000, "Triệu"), "3,2 Triệu")
+        self.assertEqual(format_price(3_200_000, "Tr"), "3,2Tr")
+        self.assertEqual(format_price(3_200_000, "tr"), "3,2tr")
 
     def test_image_number_uses_highest_existing_stem(self) -> None:
         sources = [

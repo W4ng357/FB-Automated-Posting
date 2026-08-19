@@ -32,33 +32,16 @@ Write-Host "Cleaning previous build artifacts..."
 if (Test-Path "build") { Remove-Item -Recurse -Force "build" }
 if (Test-Path "dist") { Remove-Item -Recurse -Force "dist" }
 
-# Parse arguments
-$BuildOnedir = $true
-$BuildOnefile = $true
+# 5. Build distributions using FBPoster.spec
+Write-Host "Building distributions from FBPoster.spec..." -ForegroundColor Yellow
+& $PythonCmd -m PyInstaller --noconfirm FBPoster.spec
 
-if ($args -contains "-Onedir") {
-    $BuildOnefile = $false
-} elseif ($args -contains "-Onefile") {
-    $BuildOnedir = $false
+if (Test-Path "dist\FBPoster\FBPoster.exe") {
+    Write-Host "✓ ONEDIR package ready: $ProjectRoot\dist\FBPoster\FBPoster.exe" -ForegroundColor Green
 }
 
-# 5. Build ONEDIR package
-if ($BuildOnedir) {
-    Write-Host "Building ONEDIR distribution (dist\FBPoster\)..." -ForegroundColor Yellow
-    & $PythonCmd -m PyInstaller --noconfirm FBPoster.spec
-    Write-Host "✓ ONEDIR build completed: $ProjectRoot\dist\FBPoster\FBPoster.exe" -ForegroundColor Green
-}
-
-# 6. Build ONEFILE executable
-if ($BuildOnefile) {
-    Write-Host "Building ONEFILE standalone executable (dist\FBPoster.exe)..." -ForegroundColor Yellow
-    & $PythonCmd -m PyInstaller --noconfirm --onefile --windowed `
-        --name FBPoster `
-        --paths src `
-        --add-data "src/gui/styles/dark.qss;src/gui/styles" `
-        src/gui/app.py
-
-    Write-Host "✓ ONEFILE build completed: $ProjectRoot\dist\FBPoster.exe" -ForegroundColor Green
+if (Test-Path "dist\FBPoster-standalone.exe") {
+    Write-Host "✓ ONEFILE executable ready: $ProjectRoot\dist\FBPoster-standalone.exe" -ForegroundColor Green
 }
 
 Write-Host "=== Windows Build Successful ===" -ForegroundColor Cyan

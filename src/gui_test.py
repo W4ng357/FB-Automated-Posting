@@ -461,6 +461,35 @@ class GuiTest(unittest.TestCase):
             "Phòng trọ đã sửa",
         )
 
+    def test_listing_dialog_supports_empty_title_and_custom_price_unit(self) -> None:
+        draft_manager = ListingDraftManager(self.root / "drafts")
+        dialog = ListingDialog(
+            self.listing_service,
+            draft_manager=draft_manager,
+        )
+        # Empty title (optional)
+        dialog.title_input.setText("")
+        dialog.address_input.setText("123 Xuân Thủy, Cầu Giấy")
+        dialog.price_input.setValue(3.2)
+        dialog.price_unit_combo.setCurrentText("Triệu")
+        self.root.joinpath("sources").mkdir(exist_ok=True)
+        img = self._source_image("room-custom-unit.jpg")
+        draft_manager.add_images(dialog.draft_id, [img])
+        dialog._refresh_images_from_disk()
+
+        dialog._update_preview()
+        caption = dialog.post_preview.caption.text()
+        self.assertIn("3,2 Triệu/tháng", caption)
+        self.assertNotIn("Tên phòng", caption)
+
+        dialog._save()
+        created = dialog.saved_listing
+        self.assertIsNotNone(created)
+        self.assertEqual(created.title, "")
+        self.assertEqual(created.price, 3_200_000)
+        self.assertEqual(created.price_unit, "Triệu")
+        dialog.reject()
+
     def test_new_listing_cannot_be_saved_without_an_image(self) -> None:
         draft_manager = ListingDraftManager(self.root / "drafts")
         dialog = ListingDialog(
@@ -469,6 +498,7 @@ class GuiTest(unittest.TestCase):
         )
         dialog.title_input.setText("Phòng chưa có ảnh")
         dialog.address_input.setText("Cầu Giấy, Hà Nội")
+        dialog.price_input.setValue(2.5)
 
         with patch(
             "gui.dialogs.listing_dialog.QMessageBox.warning"
@@ -579,6 +609,40 @@ class GuiTest(unittest.TestCase):
         self.assertEqual(len(targets), 1)
         self.assertEqual(targets[0].target_count, 3)
         self.assertEqual(names[first.url], first.name)
+        selector.reject()
+
+    def test_group_selector_dialog_filters_and_selects_all_visible(self) -> None:
+        g1 = self.group_service.create_group(
+            "https://facebook.com/groups/tay-ho-1",
+            "Phòng trọ Tây Hồ - Hà Nội",
+        )
+        g2 = self.group_service.create_group(
+            "https://facebook.com/groups/tay-ho-2",
+            "Tìm bạn ở ghép Tây Hồ",
+        )
+        g3 = self.group_service.create_group(
+            "https://facebook.com/groups/cau-giay",
+            "Nhà trọ Cầu Giấy",
+        )
+        selector = GroupSelectorDialog(self.group_service)
+        self.assertEqual(len(selector._visible_rows()), 3)
+
+        # Filter by "Tây Hồ"
+        selector.search_input.setText("Tây Hồ")
+        visible = selector._visible_rows()
+        self.assertEqual(len(visible), 2)
+        self.assertEqual({r.group.url for r in visible}, {g1.url, g2.url})
+
+        # Click select all filtered
+        selector.select_filtered_button.click()
+        self.assertTrue(all(r.checkbox.isChecked() for r in visible))
+
+        # Clear search
+        selector.search_input.clear()
+        self.assertEqual(len(selector._visible_rows()), 3)
+        targets, names = selector.selected_targets()
+        self.assertEqual(len(targets), 2)
+        self.assertEqual({t.url for t in targets}, {g1.url, g2.url})
         selector.reject()
 
     def test_posting_plan_dialog_configures_each_room_independently(self) -> None:

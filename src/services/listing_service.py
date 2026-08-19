@@ -30,9 +30,10 @@ class ListingService:
 
     def create_listing(
         self,
-        title: str,
         location: str,
         price: int,
+        title: str = "",
+        price_unit: str = "TR",
         address: str = "",
         area: float | None = None,
         description: str = "",
@@ -44,6 +45,7 @@ class ListingService:
             title=title,
             location=location,
             price=price,
+            price_unit=price_unit,
             address=address,
             area=area,
             description=description,

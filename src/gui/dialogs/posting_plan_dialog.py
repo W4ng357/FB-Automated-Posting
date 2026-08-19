@@ -21,7 +21,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from gui.widgets.design_components import EmptyState, RoundedThumbnail
+from gui.widgets.design_components import (
+    EmptyState,
+    RoundedThumbnail,
+    SearchLineEdit,
+)
 from models.group_target import GroupTarget
 from models.listing import Listing
 from models.listing_posting_task import ListingPostingTask
@@ -76,23 +80,30 @@ class RoomPlanRow(QFrame):
         root = QHBoxLayout(self)
         root.setContentsMargins(12, 10, 10, 10)
         root.setSpacing(10)
+        display_title = (
+            listing.title.strip()
+            or listing.address.strip()
+            or listing.location.strip()
+            or f"Phòng {listing.id}"
+        )
         self.checkbox = QCheckBox()
         self.checkbox.setChecked(checked)
-        self.checkbox.setToolTip(f"Chọn phòng {listing.title}")
+        self.checkbox.setToolTip(f"Chọn {display_title}")
         self.checkbox.toggled.connect(
             lambda value: self.checked_changed.emit(listing.id, value)
         )
         thumbnail = RoundedThumbnail(
             image_path,
-            listing.title,
+            display_title,
             QSize(58, 58),
         )
         info = QVBoxLayout()
         info.setSpacing(3)
-        title = QLabel(listing.title)
+        title = QLabel(display_title)
         title.setObjectName("CardTitle")
         title.setWordWrap(True)
-        details = [listing.id, format_price(listing.price)]
+        unit = getattr(listing, "price_unit", "TR") or "TR"
+        details = [listing.id, format_price(listing.price, unit)]
         if listing.area is not None:
             details.append(f"{format_area(listing.area)}m²")
         metadata = QLabel(" · ".join(details))
@@ -100,6 +111,8 @@ class RoomPlanRow(QFrame):
         address = QLabel(listing.address.strip() or listing.location.strip())
         address.setProperty("meta", True)
         address.setWordWrap(True)
+        if not listing.title.strip():
+            address.hide()
         self.plan_summary = QLabel("Chưa chọn nhóm")
         self.plan_summary.setProperty("planMeta", True)
         info.addWidget(title)
@@ -315,20 +328,21 @@ class PostingPlanDialog(QDialog):
         layout.addWidget(self.group_heading)
         layout.addWidget(self.active_room_label)
 
-        self.group_search_input = QLineEdit()
-        self.group_search_input.setProperty("search", True)
-        self.group_search_input.setPlaceholderText(
-            "Tìm theo tên hoặc đường dẫn nhóm…"
+        self.group_search_input = SearchLineEdit(
+            placeholder="Tìm theo tên hoặc đường dẫn nhóm…"
         )
-        self.group_search_input.setClearButtonEnabled(True)
         self.group_search_input.setMaxLength(240)
         self.group_search_input.setAccessibleName("Tìm nhóm trong danh sách")
         self.group_search_input.setToolTip(
             "Có thể tìm theo tên, đường dẫn hoặc từ khóa không dấu."
         )
-        self.group_search_input.textChanged.connect(self._filter_group_rows)
+        self.group_search_input.liveTextChanged.connect(
+            self._filter_group_rows
+        )
         layout.addWidget(self.group_search_input)
 
+        select_row = QHBoxLayout()
+        select_row.setSpacing(10)
         self.select_all_groups = SelectAllCheckBox("Chọn tất cả nhóm")
         self.select_all_groups.setTristate(True)
         self.select_all_groups.setAccessibleName(
@@ -337,7 +351,25 @@ class PostingPlanDialog(QDialog):
         self.select_all_groups.stateChanged.connect(
             self._on_select_all_groups_changed
         )
-        layout.addWidget(self.select_all_groups)
+        self.select_filtered_button = QPushButton("Chọn tất cả đang lọc")
+        self.select_filtered_button.setProperty("density", "compact")
+        self.select_filtered_button.setProperty("role", "ghost")
+        self.select_filtered_button.clicked.connect(
+            lambda: self._set_visible_groups_checked(True)
+        )
+
+        self.unselect_filtered_button = QPushButton("Bỏ chọn")
+        self.unselect_filtered_button.setProperty("density", "compact")
+        self.unselect_filtered_button.setProperty("role", "ghost")
+        self.unselect_filtered_button.clicked.connect(
+            lambda: self._set_visible_groups_checked(False)
+        )
+
+        select_row.addWidget(self.select_all_groups)
+        select_row.addWidget(self.select_filtered_button)
+        select_row.addWidget(self.unselect_filtered_button)
+        select_row.addStretch()
+        layout.addLayout(select_row)
 
         bulk = QHBoxLayout()
         bulk.setSpacing(8)
@@ -508,10 +540,15 @@ class PostingPlanDialog(QDialog):
         self._sync_select_all_groups()
 
     def _on_select_all_groups_changed(self, state: int) -> None:
+        if self._updating_group_selection:
+            return
+        checked = state != Qt.CheckState.Unchecked.value
+        self._set_visible_groups_checked(checked)
+
+    def _set_visible_groups_checked(self, checked: bool) -> None:
         visible_rows = self._visible_group_rows()
         if not visible_rows:
             return
-        checked = state != Qt.CheckState.Unchecked.value
         if checked:
             self._ensure_active_room_selected()
         self._updating_group_selection = True
@@ -527,6 +564,12 @@ class PostingPlanDialog(QDialog):
         visible_rows = self._visible_group_rows()
         total = len(visible_rows)
         selected = sum(row.checkbox.isChecked() for row in visible_rows)
+
+        if hasattr(self, "select_filtered_button"):
+            self.select_filtered_button.setEnabled(total > 0)
+        if hasattr(self, "unselect_filtered_button"):
+            self.unselect_filtered_button.setEnabled(total > 0)
+
         if not selected:
             state = Qt.CheckState.Unchecked
         elif selected == total:
@@ -536,7 +579,7 @@ class PostingPlanDialog(QDialog):
         blocker = QSignalBlocker(self.select_all_groups)
         self.select_all_groups.setEnabled(total > 0)
         self.select_all_groups.setCheckState(state)
-        filtered = bool(self.group_search_input.text().strip())
+        filtered = bool(self.group_search_input.effective_text().strip())
         label = (
             "Chọn tất cả nhóm đang hiển thị"
             if filtered

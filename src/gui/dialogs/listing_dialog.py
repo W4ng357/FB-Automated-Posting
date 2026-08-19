@@ -8,9 +8,15 @@ from PySide6.QtCore import (
     QTimer,
     QUrl,
 )
-from PySide6.QtGui import QCloseEvent, QDesktopServices, QIcon
+from PySide6.QtGui import (
+    QCloseEvent,
+    QDesktopServices,
+    QGuiApplication,
+    QIcon,
+)
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
@@ -45,20 +51,21 @@ class MillionPriceSpinBox(QDoubleSpinBox):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setLocale(QLocale("vi_VN"))
-        self.setRange(0, 2_000)
+        self.setRange(0, 100_000)
         self.setDecimals(6)
         self.setSingleStep(0.1)
-        self.setSuffix(" tr")
+        self.setSpecialValueText("")
+        if self.lineEdit():
+            self.lineEdit().setPlaceholderText("Ví dụ: 3,2")
 
     def textFromValue(self, value: float) -> str:
+        if value == 0:
+            return ""
         compact = f"{value:.6f}".rstrip("0").rstrip(".")
         return compact.replace(".", ",")
 
     def valueFromText(self, text: str) -> float:
         compact = text.strip()
-        suffix = self.suffix().strip()
-        if compact.casefold().endswith(suffix.casefold()):
-            compact = compact[:-len(suffix)].strip()
         try:
             normalized = (
                 compact.replace(".", "").replace(",", ".")
@@ -84,9 +91,13 @@ class AreaSpinBox(QDoubleSpinBox):
         self.setDecimals(2)
         self.setSingleStep(1)
         self.setSuffix(" m²")
-        self.setSpecialValueText("Chưa nhập")
+        self.setSpecialValueText("")
+        if self.lineEdit():
+            self.lineEdit().setPlaceholderText("Ví dụ: 25")
 
     def textFromValue(self, value: float) -> str:
+        if value == 0:
+            return ""
         compact = f"{value:.2f}".rstrip("0").rstrip(".")
         return compact.replace(".", ",")
 
@@ -134,12 +145,22 @@ class ListingDialog(QDialog):
         self.setWindowTitle(
             "Chỉnh sửa thông tin phòng" if listing else "Thêm phòng"
         )
-        self.setMinimumSize(780, 660)
-        self.resize(self._compact_width, 880)
+        self.setAttribute(Qt.WidgetAttribute.WA_InputMethodEnabled, True)
+
+        screen = QGuiApplication.primaryScreen()
+        if screen:
+            available = screen.availableGeometry()
+            dialog_w = min(self._compact_width, max(680, available.width() - 40))
+            dialog_h = min(700, max(460, available.height() - 70))
+            self.resize(dialog_w, dialog_h)
+            self.setMinimumSize(min(680, dialog_w), min(460, dialog_h))
+        else:
+            self.setMinimumSize(680, 480)
+            self.resize(self._compact_width, 680)
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(24, 22, 24, 20)
-        root.setSpacing(14)
+        root.setContentsMargins(20, 16, 20, 16)
+        root.setSpacing(10)
 
         header = QHBoxLayout()
         heading = QVBoxLayout()
@@ -241,9 +262,9 @@ class ListingDialog(QDialog):
         panel = QFrame()
         panel.setProperty("formSection", True)
         layout = QGridLayout(panel)
-        layout.setContentsMargins(18, 17, 18, 18)
-        layout.setHorizontalSpacing(18)
-        layout.setVerticalSpacing(7)
+        layout.setContentsMargins(16, 14, 16, 14)
+        layout.setHorizontalSpacing(14)
+        layout.setVerticalSpacing(6)
         layout.setColumnStretch(0, 1)
         layout.setColumnStretch(1, 1)
 
@@ -252,15 +273,21 @@ class ListingDialog(QDialog):
         layout.addWidget(section_title, 0, 0, 1, 2)
 
         self.title_input = QLineEdit()
+        self.title_input.setAttribute(
+            Qt.WidgetAttribute.WA_InputMethodEnabled, True
+        )
         self.title_input.setPlaceholderText(
-            "Ví dụ: Phòng khép kín Thanh Xuân"
+            "Tùy chọn - ví dụ: Phòng khép kín Thanh Xuân"
         )
         layout.addWidget(
-            self._field_label("Tên phòng *", self.title_input), 1, 0
+            self._field_label("Tên phòng", self.title_input), 1, 0
         )
         layout.addWidget(self.title_input, 2, 0)
 
         self.address_input = QLineEdit()
+        self.address_input.setAttribute(
+            Qt.WidgetAttribute.WA_InputMethodEnabled, True
+        )
         self.address_input.setPlaceholderText(
             "Số nhà, đường, quận/huyện, tỉnh/thành phố"
         )
@@ -269,24 +296,46 @@ class ListingDialog(QDialog):
         )
         layout.addWidget(self.address_input, 2, 1)
 
+        price_row = QHBoxLayout()
+        price_row.setSpacing(8)
         self.price_input = MillionPriceSpinBox()
+        if self.price_input.lineEdit():
+            self.price_input.lineEdit().setAttribute(
+                Qt.WidgetAttribute.WA_InputMethodEnabled, True
+            )
+        self.price_unit_combo = QComboBox()
+        self.price_unit_combo.setEditable(True)
+        self.price_unit_combo.addItems(["TR", "Tr", "tr", "Triệu", "triệu"])
+        self.price_unit_combo.setCurrentText("TR")
+        self.price_unit_combo.setFixedWidth(85)
+        self.price_unit_combo.setToolTip("Đơn vị giá (mặc định: TR)")
+        price_row.addWidget(self.price_input, 1)
+        price_row.addWidget(self.price_unit_combo)
+
         layout.addWidget(
             self._field_label("Giá thuê *", self.price_input), 3, 0
         )
-        layout.addWidget(self.price_input, 4, 0)
+        layout.addLayout(price_row, 4, 0)
 
         self.area_input = AreaSpinBox()
+        if self.area_input.lineEdit():
+            self.area_input.lineEdit().setAttribute(
+                Qt.WidgetAttribute.WA_InputMethodEnabled, True
+            )
         layout.addWidget(
             self._field_label("Diện tích", self.area_input), 3, 1
         )
         layout.addWidget(self.area_input, 4, 1)
 
         self.description_input = QPlainTextEdit()
+        self.description_input.setAttribute(
+            Qt.WidgetAttribute.WA_InputMethodEnabled, True
+        )
         self.description_input.setPlaceholderText(
             "Mô tả nội thất, tiện ích và điều kiện thuê"
         )
-        self.description_input.setMinimumHeight(72)
-        self.description_input.setMaximumHeight(88)
+        self.description_input.setMinimumHeight(60)
+        self.description_input.setMaximumHeight(78)
         description_label = self._field_label(
             "Mô tả", self.description_input
         )
@@ -297,6 +346,9 @@ class ListingDialog(QDialog):
         layout.addWidget(self.description_input, 6, 0, 1, 2)
 
         self.contact_input = QLineEdit()
+        self.contact_input.setAttribute(
+            Qt.WidgetAttribute.WA_InputMethodEnabled, True
+        )
         self.contact_input.setPlaceholderText(
             "Số điện thoại hoặc cách liên hệ"
         )
@@ -317,8 +369,8 @@ class ListingDialog(QDialog):
         panel = QFrame()
         panel.setProperty("formSection", True)
         layout = QVBoxLayout(panel)
-        layout.setContentsMargins(18, 15, 18, 15)
-        layout.setSpacing(9)
+        layout.setContentsMargins(16, 12, 16, 12)
+        layout.setSpacing(8)
 
         header = QHBoxLayout()
         title = QLabel("Ảnh phòng *")
@@ -367,6 +419,7 @@ class ListingDialog(QDialog):
         self.title_input.textChanged.connect(self._update_preview)
         self.address_input.textChanged.connect(self._update_preview)
         self.price_input.valueChanged.connect(self._update_preview)
+        self.price_unit_combo.currentTextChanged.connect(self._update_preview)
         self.area_input.valueChanged.connect(self._update_preview)
         self.description_input.textChanged.connect(self._update_preview)
         self.contact_input.textChanged.connect(self._update_preview)
@@ -376,6 +429,7 @@ class ListingDialog(QDialog):
             self.title_input,
             self.address_input,
             self.price_input,
+            self.price_unit_combo,
             self.area_input,
             self.description_input,
             self.contact_input,
@@ -396,6 +450,10 @@ class ListingDialog(QDialog):
             listing.address.strip() or listing.location.strip()
         )
         self.price_input.set_price_in_vnd(listing.price)
+        unit = getattr(listing, "price_unit", "TR") or "TR"
+        if self.price_unit_combo.findText(unit) < 0:
+            self.price_unit_combo.addItem(unit)
+        self.price_unit_combo.setCurrentText(unit)
         self.area_input.setValue(listing.area or 0)
         self.description_input.setPlainText(listing.description)
         self.contact_input.setText(listing.contact)
@@ -418,7 +476,6 @@ class ListingDialog(QDialog):
             "Quay lại chỉnh sửa" if is_preview else "Xem trước bài viết"
         )
 
-    @Slot()
     def _stabilize_editor_layout(self) -> None:
         self._sync_image_gallery_height()
         self.editor_content.updateGeometry()
@@ -455,7 +512,6 @@ class ListingDialog(QDialog):
         self.images_dir.mkdir(parents=True, exist_ok=True)
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.images_dir)))
 
-    @Slot(str)
     def _refresh_images_from_disk(self, *_args) -> None:
         if self._is_closing:
             return
@@ -540,15 +596,17 @@ class ListingDialog(QDialog):
     def _listing_values(self) -> dict[str, object]:
         title = self.title_input.text().strip()
         address = self.address_input.text().strip()
-        if not title:
-            raise ValueError("Hãy nhập tên phòng.")
         if not address:
             raise ValueError("Hãy nhập địa chỉ phòng.")
+        if self.price_input.value() <= 0:
+            raise ValueError("Hãy nhập giá thuê.")
         area_value = self.area_input.value()
+        price_unit = self.price_unit_combo.currentText().strip() or "TR"
         return {
             "title": title,
             "location": address,
             "price": self.price_input.price_in_vnd(),
+            "price_unit": price_unit,
             "address": address,
             "area": area_value if area_value > 0 else None,
             "description": self.description_input.toPlainText().strip(),
@@ -557,14 +615,16 @@ class ListingDialog(QDialog):
         }
 
     def _build_preview_listing(self) -> Listing:
-        title = self.title_input.text().strip() or "Tên phòng"
+        title = self.title_input.text().strip()
         address = self.address_input.text().strip() or "Địa chỉ phòng"
         area_value = self.area_input.value()
+        price_unit = self.price_unit_combo.currentText().strip() or "TR"
         return Listing(
             id=self.listing.id if self.listing else "PREVIEW",
             title=title,
             location=address,
             price=self.price_input.price_in_vnd(),
+            price_unit=price_unit,
             address=address,
             area=area_value if area_value > 0 else None,
             description=self.description_input.toPlainText().strip(),

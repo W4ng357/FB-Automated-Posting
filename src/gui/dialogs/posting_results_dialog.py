@@ -62,7 +62,8 @@ class PostingResultRow(QFrame):
             metadata_text = entry.listing_id
             address_text = "Phòng này không còn trong danh sách"
         else:
-            metadata = [listing.id, format_price(listing.price)]
+            unit = getattr(listing, "price_unit", "TR") or "TR"
+            metadata = [listing.id, format_price(listing.price, unit)]
             if listing.area is not None:
                 metadata.append(f"{format_area(listing.area)}m²")
             metadata_text = " · ".join(metadata)

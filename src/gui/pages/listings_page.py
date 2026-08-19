@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui.dialogs.listing_dialog import ListingDialog
-from gui.widgets.design_components import EmptyState
+from gui.widgets.design_components import EmptyState, SearchLineEdit
 from gui.widgets.listing_card import ListingCard
 from models.listing import Listing
 from services.listing_service import ListingService
@@ -55,13 +55,10 @@ class ListingsPage(QWidget):
         header.addWidget(add_button)
         root.addLayout(header)
 
-        self.search_input = QLineEdit()
-        self.search_input.setProperty("search", True)
-        self.search_input.setPlaceholderText(
-            "Tìm theo mã, tên phòng hoặc địa chỉ…"
+        self.search_input = SearchLineEdit(
+            placeholder="Tìm theo mã, tên phòng hoặc địa chỉ…"
         )
-        self.search_input.setClearButtonEnabled(True)
-        self.search_input.textChanged.connect(self._render_listings)
+        self.search_input.liveTextChanged.connect(self._render_listings)
         self.search_input.setMaximumWidth(760)
         self.count_label = QLabel()
         self.count_label.setProperty("meta", True)
@@ -89,6 +86,7 @@ class ListingsPage(QWidget):
             self.listings = self.listing_service.get_all()
         except Exception as error:
             self.listings = []
+            self._clear()
             self._render_message(
                 "Không thể tải danh sách phòng",
                 f"{error}\nKiểm tra tệp dữ liệu rồi thử lại.",
@@ -96,19 +94,36 @@ class ListingsPage(QWidget):
                 self.refresh_listings,
             )
             return
+
+        if not self.search_input.text():
+            self._render_listings()
+            return
+        # If user has typed a search query, keep current results filtered
+        if not self.listings:
+            self._clear()
+            self._render_message(
+                "Chưa có phòng",
+                "Thêm phòng đầu tiên để chuẩn bị nội dung đăng.",
+                "Thêm phòng",
+                self._add_listing,
+            )
+            return
         self._render_listings()
 
-    def _render_listings(self) -> None:
+    def _render_listings(self, query: str | None = None) -> None:
         self._clear()
-        query = self.search_input.text().strip().lower()
+        if query is None:
+            raw_query = self.search_input.effective_text().strip().lower()
+        else:
+            raw_query = query.strip().lower()
         visible = [
             listing
             for listing in self.listings
-            if not query
-            or query in listing.id.lower()
-            or query in listing.title.lower()
-            or query in listing.address.lower()
-            or query in listing.location.lower()
+            if not raw_query
+            or raw_query in listing.id.lower()
+            or raw_query in listing.title.lower()
+            or raw_query in listing.address.lower()
+            or raw_query in listing.location.lower()
         ]
         self.count_label.setText(f"{len(visible)} phòng")
         if not visible:
