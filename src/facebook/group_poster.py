@@ -16,44 +16,50 @@ def post_to_group(
 ) -> PostResult:
     group_name = None
     try:
-
         page.goto(
             group_url,
             wait_until="domcontentloaded",
         )
-        
+        if hasattr(page, "wait_for_timeout"):
+            page.wait_for_timeout(1_500)
+
         group_name = get_group_name(page)
         print(f"[+] Group name: {group_name}")
 
-
+        # 1. Click mở khung soạn thảo
         composer = page.get_by_role(
             "button",
             name="Bạn viết gì đi...",
         )
-        composer.click()
+        try:
+            if hasattr(composer, "count") and composer.count():
+                composer.click()
+            else:
+                _find_and_click_composer(page)
+        except Exception:
+            _find_and_click_composer(page)
 
-        dialog = page.get_by_role(
-            "dialog",
-            name="Tạo bài viết",
-        ).first
+        if hasattr(page, "wait_for_timeout"):
+            page.wait_for_timeout(1_000)
 
-        textbox = dialog.get_by_role("textbox")
+        # 2. Tìm Dialog tạo bài viết
+        dialog = _find_composer_dialog(page)
+
+        # 3. Nhập Caption
+        textbox = _find_composer_textbox(dialog)
         textbox.press_sequentially(caption)
 
-        file_input = dialog.locator(
-            'input[type="file"]'
-        ).first
+        # 4. Upload ảnh nếu có
+        if image_paths:
+            file_input = dialog.locator('input[type="file"]').first
+            file_input.set_input_files(
+                [str(path) for path in image_paths]
+            )
+            if hasattr(page, "wait_for_timeout"):
+                page.wait_for_timeout(2_000)
 
-        file_input.set_input_files(
-            [str(path) for path in image_paths]
-        )
-
-        post_button = dialog.get_by_role(
-            "button",
-            name="Đăng",
-            exact=True,
-        )
-
+        # 5. Bấm nút Đăng
+        post_button = _find_post_button(dialog)
         post_button.click()
 
         dialog.wait_for(
@@ -88,6 +94,87 @@ def post_to_group(
             success=False,
             error=str(error),
         )
+
+
+def _find_and_click_composer(page: Page) -> None:
+    selectors = (
+        'div[role="main"] div[role="button"]:has-text("Bạn viết gì đi")',
+        'div[role="main"] div[role="button"]:has-text("Tạo bài viết")',
+        'div[role="main"] div[role="button"]:has-text("Viết gì đó")',
+        'div[role="main"] div[role="button"]:has-text("Write something")',
+        'div[role="main"] div[role="button"]:has-text("Create a public post")',
+        'div[role="main"] div[role="button"]:has-text("Bạn đang nghĩ gì")',
+        '[role="button"]:has-text("Bạn viết gì đi")',
+        '[role="button"]:has-text("Tạo bài viết")',
+        '[role="button"]:has-text("Write something")',
+    )
+    for selector in selectors:
+        try:
+            btn = page.locator(selector).first
+            if hasattr(btn, "count") and btn.count():
+                btn.click()
+                return
+        except Exception:
+            continue
+    page.get_by_role("button", name="Bạn viết gì đi...").click()
+
+
+def _find_composer_dialog(page: Page):
+    try:
+        dialog = page.get_by_role("dialog", name="Tạo bài viết").first
+        if hasattr(dialog, "wait_for"):
+            dialog.wait_for(state="visible", timeout=4_000)
+            return dialog
+    except Exception:
+        pass
+
+    for selector in (
+        '[role="dialog"]:visible',
+        '[aria-label*="Tạo bài viết" i]',
+        '[aria-label*="Create a post" i]',
+        '[aria-label*="Create post" i]',
+        '[role="dialog"]',
+    ):
+        try:
+            dialog = page.locator(selector).first
+            if hasattr(dialog, "count") and dialog.count():
+                return dialog
+        except Exception:
+            continue
+
+    return page.get_by_role("dialog", name="Tạo bài viết").first
+
+
+def _find_composer_textbox(dialog):
+    for selector in (
+        '[role="textbox"]:visible',
+        '[contenteditable="true"]:visible',
+        '[role="textbox"]',
+        '[contenteditable="true"]',
+    ):
+        try:
+            tb = dialog.locator(selector).first
+            if hasattr(tb, "count") and tb.count():
+                return tb
+        except Exception:
+            continue
+    return dialog.get_by_role("textbox")
+
+
+def _find_post_button(dialog):
+    for selector in (
+        '[role="button"]:has-text("Đăng"):visible',
+        '[role="button"]:has-text("Post"):visible',
+        '[role="button"]:has-text("Đăng")',
+        '[role="button"]:has-text("Post")',
+    ):
+        try:
+            btn = dialog.locator(selector).first
+            if hasattr(btn, "count") and btn.count():
+                return btn
+        except Exception:
+            continue
+    return dialog.get_by_role("button", name="Đăng", exact=True)
 
 
 def post_to_groups(
