@@ -4,6 +4,7 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
+from facebook.browser_launcher import launch_persistent_context as launch_browser_context
 from facebook.group_poster import post_to_group
 from models.account_posting_plan import AccountPostingPlan
 from models.listing_posting_task import ListingPostingTask
@@ -113,8 +114,9 @@ class AccountPostingService:
                 )
 
                 with self.playwright_factory() as playwright:
-                    context = playwright.chromium.launch_persistent_context(
-                        user_data_dir=str(session_path),
+                    context = launch_browser_context(
+                        playwright,
+                        user_data_dir=session_path,
                         headless=True,
                     )
                     context.grant_permissions(

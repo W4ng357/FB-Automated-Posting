@@ -1,5 +1,4 @@
 # -*- mode: python ; coding: utf-8 -*-
-
 import os
 import sys
 from pathlib import Path
@@ -45,6 +44,7 @@ hidden_imports = [
     "playwright",
     "playwright.sync_api",
     "app_paths",
+    "version",
     "session_manager",
     "models",
     "models.listing",
@@ -71,6 +71,7 @@ hidden_imports = [
     "services.account_session_registry",
     "services.caption_generator",
     "services.content_loader",
+    "services.update_service",
     "facebook",
     "facebook.account_profile",
     "facebook.group_metadata",
@@ -82,6 +83,7 @@ hidden_imports = [
     "gui.main_window",
     "gui.system_tray",
     "gui.dialogs",
+    "gui.dialogs.update_dialog",
     "gui.pages",
     "gui.widgets",
     "gui.workers",
@@ -146,8 +148,6 @@ onefile_exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    upx_exclude=[],
-    runtime_tmpdir=None,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,

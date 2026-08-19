@@ -3,6 +3,7 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
+from facebook.browser_launcher import launch_persistent_context as launch_browser_context
 from facebook.get_group_name import get_group_name
 from services.account_session_registry import AccountSessionRegistry
 from session_manager import get_session
@@ -19,8 +20,9 @@ def fetch_group_metadata(
 ) -> GroupMetadata:
     """Fetch only the Facebook group name using the selected session."""
     with sync_playwright() as playwright:
-        context = playwright.chromium.launch_persistent_context(
-            user_data_dir=str(session_path),
+        context = launch_browser_context(
+            playwright,
+            user_data_dir=session_path,
             headless=False,
         )
         try:
