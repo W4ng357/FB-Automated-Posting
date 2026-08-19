@@ -125,7 +125,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgl1-mesa-glx libegl1 libxkbcommon-x11-0 libdbus-1-3
+          sudo apt-get install -y libgl1 libglx-mesa0 libegl1 libxkbcommon-x11-0 libdbus-1-3
 
       - name: Install dependencies
         run: |
@@ -135,7 +135,7 @@ jobs:
       - name: Build Linux package
         run: |
           chmod +x scripts/build_linux.sh
-          ./scripts/build_linux.sh --onedir
+          ./scripts/build_linux.sh
           tar -czvf dist/FBPoster-Linux-x86_64.tar.gz -C dist FBPoster
 
       - name: Upload Linux Artifact to Release
