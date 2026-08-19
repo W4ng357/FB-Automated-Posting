@@ -84,6 +84,10 @@ BROWSER_SESSIONS_DIR = APP_DATA_DIR / "browser_sessions"
 LOGS_DIR = APP_DATA_DIR / "logs"
 TEMP_DIR = APP_DATA_DIR / "temp"
 
+UPDATES_DIR = APP_DATA_DIR / "updates"
+CURRENT_UPDATE_DIR = UPDATES_DIR / "current"
+TEMP_UPDATE_DIR = UPDATES_DIR / "temp"
+
 
 def ensure_app_paths() -> None:
     """Create all persistent directories and initial empty JSON files if missing."""
@@ -97,6 +101,7 @@ def ensure_app_paths() -> None:
         BROWSER_SESSIONS_DIR,
         LOGS_DIR,
         TEMP_DIR,
+        UPDATES_DIR,
     ):
         directory.mkdir(parents=True, exist_ok=True)
 

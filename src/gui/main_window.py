@@ -1,4 +1,4 @@
-from PySide6.QtCore import QEvent, QEasingCurve, QPropertyAnimation, QTimer, Signal
+from PySide6.QtCore import QEvent, QEasingCurve, QPropertyAnimation, QTimer, Qt, Signal
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -15,12 +15,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.dialogs.update_dialog import CheckUpdateWorker, UpdateDialog
 from gui.pages.groups_page import GroupsPage
 from gui.pages.listings_page import ListingsPage
 from gui.pages.posting_page import PostingPage
-from services.group_service import GroupService
 from services.facebook_account_service import FacebookAccountService
+from services.group_service import GroupService
 from services.listing_service import ListingService
+from services.update_service import ReleaseInfo, UpdateService
 
 
 class MainWindow(QMainWindow):
@@ -31,11 +33,14 @@ class MainWindow(QMainWindow):
         listing_service: ListingService | None = None,
         group_service: GroupService | None = None,
         account_service: FacebookAccountService | None = None,
+        update_service: UpdateService | None = None,
     ) -> None:
         super().__init__()
         self.listing_service = listing_service or ListingService()
         self.group_service = group_service or GroupService()
         self.account_service = account_service
+        self.update_service = update_service or UpdateService()
+        self._silent_check_worker: CheckUpdateWorker | None = None
         self._page_animation: QPropertyAnimation | None = None
         self._system_tray_enabled = False
         self._application_exit_requested = False
@@ -78,6 +83,9 @@ class MainWindow(QMainWindow):
         self.page_stack.setCurrentIndex(0)
         self.listings_button.setChecked(True)
 
+        # Trigger silent update check after application starts
+        QTimer.singleShot(4000, self._silent_update_check)
+
     def _create_sidebar(self) -> QFrame:
         sidebar = QFrame()
         sidebar.setObjectName("Sidebar")
@@ -109,10 +117,30 @@ class MainWindow(QMainWindow):
         layout.addSpacing(14)
         layout.addWidget(separator)
         layout.addStretch()
+
         self.sidebar_footer = QLabel()
         self.sidebar_footer.setObjectName("SidebarFooter")
         self.sidebar_footer.setWordWrap(True)
         layout.addWidget(self.sidebar_footer)
+
+        # Version & Update check row
+        update_row = QHBoxLayout()
+        update_row.setSpacing(6)
+        version_text = f"v{self.update_service.get_current_installed_version().lstrip('v')}"
+        self.version_label = QLabel(version_text)
+        self.version_label.setProperty("meta", True)
+
+        self.update_btn = QPushButton("Cập nhật")
+        self.update_btn.setProperty("subtle", True)
+        self.update_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.update_btn.setToolTip("Kiểm tra bản cập nhật mới từ GitHub")
+        self.update_btn.clicked.connect(self._open_update_dialog)
+
+        update_row.addWidget(self.version_label)
+        update_row.addStretch()
+        update_row.addWidget(self.update_btn)
+        layout.addLayout(update_row)
+
         return sidebar
 
     @staticmethod
@@ -226,3 +254,24 @@ class MainWindow(QMainWindow):
             "Hãy chờ các tài khoản đăng xong trước khi đóng ứng dụng.",
         )
         event.ignore()
+
+    def _open_update_dialog(self) -> None:
+        dialog = UpdateDialog(self.update_service, parent=self)
+        dialog.exec()
+        version_text = f"v{self.update_service.get_current_installed_version().lstrip('v')}"
+        self.version_label.setText(version_text)
+
+    def _silent_update_check(self) -> None:
+        """Run silent update check on a background thread without interrupting user."""
+        self._silent_check_worker = CheckUpdateWorker(self.update_service)
+        self._silent_check_worker.finished_signal.connect(self._on_silent_check_finished)
+        self._silent_check_worker.start()
+
+    def _on_silent_check_finished(self, release: ReleaseInfo | None, _error: str) -> None:
+        if release is not None:
+            # Highlight update button with badge
+            self.update_btn.setText("● Cập nhật")
+            self.update_btn.setProperty("role", "primary")
+            self.update_btn.setToolTip(f"Có bản cập nhật mới v{release.version.lstrip('v')}!")
+            self.update_btn.style().unpolish(self.update_btn)
+            self.update_btn.style().polish(self.update_btn)

@@ -1,0 +1,38 @@
+name: Create Release and Package Code Update
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and Release Code Update
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Package Lightweight Code Update (app_code.zip)
+        run: |
+          mkdir -p dist
+          python scripts/package_code_update.py
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Bản cập nhật ${{ github.ref_name }}"
+          generate_release_notes: true
+          files: |
+            dist/app_code.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

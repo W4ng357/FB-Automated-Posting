@@ -14,12 +14,19 @@ from PySide6.QtCore import QCoreApplication
 
 from app_paths import (
     APP_NAME,
+    CURRENT_UPDATE_DIR,
     LOGS_DIR,
     ORG_NAME,
     ensure_app_paths,
     get_resource_path,
     setup_playwright_env,
 )
+
+# If an updated code package exists, load modules from it first
+if CURRENT_UPDATE_DIR.is_dir():
+    update_path_str = str(CURRENT_UPDATE_DIR)
+    if update_path_str not in sys.path:
+        sys.path.insert(0, update_path_str)
 
 # Discover system Qt6 platform input context plugins (Fcitx5, IBus) on Linux
 if sys.platform.startswith("linux"):
@@ -113,9 +120,9 @@ def create_application(
     application = QApplication(
         arguments if arguments is not None else sys.argv
     )
-    application.setOrganizationName(ORG_NAME)
-    application.setApplicationName(APP_NAME)
-    application.setApplicationVersion("1.0.0")
+    from services.update_service import UpdateService
+    active_version = UpdateService().get_current_installed_version()
+    application.setApplicationVersion(active_version)
     application.setStyle("Fusion")
     application.setFont(QFont("Noto Sans", 10))
     application.setStyleSheet(load_stylesheet())
