@@ -1,5 +1,7 @@
 import json
+import logging
 import re
+import sys
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -8,7 +10,12 @@ from time import monotonic
 from typing import Callable
 from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
-from playwright.sync_api import BrowserContext, Page, sync_playwright
+from playwright.sync_api import (
+    BrowserContext,
+    Error as PlaywrightError,
+    Page,
+    sync_playwright,
+)
 
 from models.facebook_account import normalize_facebook_name
 from services.account_session_registry import AccountSessionRegistry
@@ -16,6 +23,15 @@ from services.account_session_registry import AccountSessionRegistry
 
 class FacebookProfileNotReadyError(RuntimeError):
     pass
+
+
+LOGGER = logging.getLogger(__name__)
+WINDOWS_FACEBOOK_ARGS = (
+    "--disable-blink-features=AutomationControlled",
+    "--disable-dev-shm-usage",
+    "--no-first-run",
+    "--no-default-browser-check",
+)
 
 
 @dataclass(frozen=True)
@@ -85,15 +101,13 @@ def run_account_login_session(
     session_path.mkdir(parents=True, exist_ok=True)
     with AccountSessionRegistry.exclusive(account_id, session_path):
         with sync_playwright() as playwright:
-            context = playwright.chromium.launch_persistent_context(
-                user_data_dir=str(session_path),
-                headless=False,
-            )
+            context = _launch_login_context(playwright, session_path)
             try:
                 page = context.pages[0] if context.pages else context.new_page()
                 page.goto(
                     "https://www.facebook.com",
                     wait_until="domcontentloaded",
+                    timeout=60_000,
                 )
                 status_callback(
                     "Đăng nhập Facebook trong cửa sổ vừa mở, rồi quay lại "
@@ -111,6 +125,35 @@ def run_account_login_session(
                 return None
             finally:
                 context.close()
+
+
+def _launch_login_context(playwright, session_path: Path) -> BrowserContext:
+    launch_options = {
+        "user_data_dir": str(session_path),
+        "headless": False,
+    }
+    if sys.platform != "win32":
+        return playwright.chromium.launch_persistent_context(**launch_options)
+
+    windows_options = {
+        **launch_options,
+        "args": list(WINDOWS_FACEBOOK_ARGS),
+        "ignore_default_args": ["--enable-automation"],
+        "locale": "en-US",
+    }
+    try:
+        return playwright.chromium.launch_persistent_context(
+            channel="chrome",
+            **windows_options,
+        )
+    except PlaywrightError as error:
+        LOGGER.warning(
+            "Không mở được Chrome channel, fallback về Chromium mặc định.",
+            exc_info=error,
+        )
+        return playwright.chromium.launch_persistent_context(
+            **windows_options,
+        )
 
 
 def _read_meta(page: Page, property_name: str) -> str:
