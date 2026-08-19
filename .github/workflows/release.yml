@@ -103,7 +103,7 @@ jobs:
       - name: Build Linux package
         run: |
           chmod +x scripts/build_linux.sh
-          ./scripts/build_linux.sh -Onedir
+          ./scripts/build_linux.sh --onedir
           tar -czvf dist/FBPoster-Linux-x86_64.tar.gz -C dist FBPoster
 
       - name: Upload Linux Artifact to Release

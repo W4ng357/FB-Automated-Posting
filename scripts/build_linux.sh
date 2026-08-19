@@ -40,9 +40,9 @@ rm -rf build dist
 BUILD_ONEDIR=true
 BUILD_ONEFILE=true
 
-if [ "$1" == "--onedir" ]; then
+if [[ "$1" =~ ^-?-?[Oo]nedir$ ]]; then
     BUILD_ONEFILE=false
-elif [ "$1" == "--onefile" ]; then
+elif [[ "$1" =~ ^-?-?[Oo]nefile$ ]]; then
     BUILD_ONEDIR=false
 fi
 
