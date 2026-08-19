@@ -1,4 +1,4 @@
-﻿name: Release Build
+name: Release Build
 
 on:
   push:
@@ -42,13 +42,16 @@ jobs:
           Compress-Archive -Path "dist\FBPoster\*" -DestinationPath "dist\FBPoster-Windows-Portable.zip"
 
       - name: Install Inno Setup
-        uses: choco-github-actions/action-chocolatey@v1.1.0
-        with:
-          args: install innosetup -y
+        run: |
+          choco install innosetup -y --no-progress
 
       - name: Build Installer (Inno Setup)
         run: |
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\windows\installer.iss
+          $iscc = Get-Command iscc.exe -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source
+          if (-not $iscc) {
+            $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          }
+          & $iscc packaging\windows\installer.iss
 
       - name: Upload Windows Artifacts to Release
         uses: softprops/action-gh-release@v2
