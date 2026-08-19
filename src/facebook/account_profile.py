@@ -10,6 +10,7 @@ from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
 from playwright.sync_api import BrowserContext, Page, sync_playwright
 
+from facebook.browser_launcher import launch_persistent_context as launch_browser_context
 from models.facebook_account import normalize_facebook_name
 from services.account_session_registry import AccountSessionRegistry
 
@@ -103,8 +104,9 @@ def run_account_login_session(
     session_path.mkdir(parents=True, exist_ok=True)
     with AccountSessionRegistry.exclusive(account_id, session_path):
         with sync_playwright() as playwright:
-            context = playwright.chromium.launch_persistent_context(
-                user_data_dir=str(session_path),
+            context = launch_browser_context(
+                playwright,
+                user_data_dir=session_path,
                 headless=False,
             )
             try:

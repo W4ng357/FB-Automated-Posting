@@ -1,11 +1,19 @@
 # -*- mode: python ; coding: utf-8 -*-
+from pathlib import Path
+import playwright
 
+playwright_dir = Path(playwright.__file__).parent
+local_browsers = playwright_dir / 'driver' / 'package' / '.local-browsers'
+
+datas = [('src/gui/styles/dark.qss', 'src/gui/styles')]
+if local_browsers.exists():
+    datas.append((str(local_browsers), 'playwright/driver/package/.local-browsers'))
 
 a = Analysis(
     ['src/gui/app.py'],
     pathex=['src'],
     binaries=[],
-    datas=[('src/gui/styles/dark.qss', 'src/gui/styles')],
+    datas=datas,
     hiddenimports=['playwright.sync_api'],
     hookspath=[],
     hooksconfig={},

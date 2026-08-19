@@ -2,6 +2,7 @@ from pathlib import Path
 
 from playwright.sync_api import Page, sync_playwright
 
+from facebook.browser_launcher import launch_persistent_context as launch_browser_context
 from facebook.get_group_name import get_group_name
 from models.group_target import GroupTarget
 from models.post_result import PostResult
@@ -97,8 +98,9 @@ def post_to_groups(
 ) -> list[PostResult]:
     results: list[PostResult] = []
     with sync_playwright() as p:
-        context = p.chromium.launch_persistent_context(
-            user_data_dir=str(session_path),
+        context = launch_browser_context(
+            p,
+            user_data_dir=session_path,
             headless=True,
         )
         context.grant_permissions(
